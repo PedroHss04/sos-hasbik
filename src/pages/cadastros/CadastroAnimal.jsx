@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { FaArrowLeft, FaCheck, FaTimes, FaPaw } from "react-icons/fa";
@@ -7,16 +7,16 @@ import { z } from "zod";
 
 // Schema de validação
 const animalSchema = z.object({
-  especie: z.string().min(2, "Espécie deve ter pelo menos 2 caracteres"),
-  idade: z.string().nonempty("Selecione a idade"),
-  ferido: z.boolean({
+  Especie: z.string().min(2, "Espécie deve ter pelo menos 2 caracteres"),
+  Idade: z.string().nonempty("Selecione a idade"),
+  Ferido: z.boolean({
     required_error: "Selecione se o animal está ferido",
     invalid_type_error: "Selecione Sim ou Não"
   }),
-  endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres"),
-  descricao: z.string().optional(),
-  data: z.string().nonempty("Selecione a data"),
-  horario: z.string().nonempty("Selecione o horário")
+  Endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres"),
+  Descricao: z.string().optional(),
+  Timestamp: z.string().optional(),
+  Id_Usuario: z.string().uuid()
 });
 
 // Styled Components
@@ -34,7 +34,7 @@ const Header = styled.div`
   align-items: center;
   padding: 1rem;
   margin-bottom: 2rem;
-  background-color: #2B6CB0; /*VER AQUI */
+  background-color: #2B6CB0;
   border-radius: 10px;
   color: white;
 `;
@@ -174,7 +174,6 @@ const SubmitButton = styled.button`
   }
 `;
 
-// Main Component
 export default function CadastroAnimal() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -190,12 +189,19 @@ export default function CadastroAnimal() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
+  // Verificação de autenticação ao carregar o componente
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem("user"));
+    if (!userData?.id) {
+      navigate('/login');
+    }
+  }, [navigate]);
+
   const handleBack = () => navigate(-1);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Limpa o erro quando o usuário digitar
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
   };
 
@@ -211,58 +217,76 @@ export default function CadastroAnimal() {
     setErrors({});
 
     try {
-      // Validação dos dados
-      const validatedData = animalSchema.parse(formData);
+      const userData = JSON.parse(localStorage.getItem("user"));
+      console.log("Dados do usuário:", userData);
       
-      // Obter usuário logado
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      if (!userData?.id) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
 
-      // Inserir no Supabase
-      const { error } = await supabase
-        .from('animais')
+      // Validação separada para melhor tratamento de erros
+      try {
+        animalSchema.parse({
+          Especie: formData.especie,
+          Idade: formData.idade,
+          Ferido: formData.ferido,
+          Endereco: formData.endereco,
+          Descricao: formData.descricao,
+          Timestamp: new Date().toISOString(),
+          Id_Usuario: userData.id
+        });
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          const fieldErrors = {};
+          validationError.errors.forEach(err => {
+            fieldErrors[err.path[0]] = err.message;
+          });
+          setErrors(fieldErrors);
+          throw new Error("Todos os campos com '*' precisam estar preenchidos");
+        }
+        throw validationError;
+      }
+
+      const { data, error } = await supabase
+        .from('Animais')
         .insert([{
-          ...validatedData,
-          user_id: user.id
-        }]);
+          Especie: formData.especie,
+          Idade: formData.idade,
+          Ferido: formData.ferido,
+          Endereco: formData.endereco,
+          Descricao: formData.descricao,
+          Timestamp: new Date().toISOString(),
+          Id_Usuario: userData.id
+        }])
+        .select();
 
       if (error) throw error;
 
-      // Feedback de sucesso
-      setMessage({ 
-        text: "Animal cadastrado com sucesso!", 
-        type: "success" 
+      setMessage({
+        text: "Animal cadastrado com sucesso",
+        type: "success"
       });
-      
-      // Limpar formulário após 2 segundos
-      setTimeout(() => {
-        setFormData({
-          especie: "",
-          idade: "",
-          ferido: null,
-          descricao: "",
-          endereco: "",
-          data: "",
-          horario: ""
-        });
-      }, 2000);
+
+      // Limpar formulário
+      setFormData({
+        especie: "",
+        idade: "",
+        ferido: null,
+        descricao: "",
+        endereco: "",
+        data: "",
+        horario: ""
+      });
 
     } catch (error) {
-      console.error("Erro no cadastro:", error);
+      console.error("Erro completo:", error);
+      setMessage({ 
+        text: error.message || "Erro ao cadastrar animal",
+        type: "error" 
+      });
       
-      if (error instanceof z.ZodError) {
-        // Tratar erros de validação
-        const validationErrors = {};
-        error.errors.forEach(err => {
-          validationErrors[err.path[0]] = err.message;
-        });
-        setErrors(validationErrors);
-      } else {
-        // Erros do Supabase ou outros
-        setMessage({ 
-          text: error.message || "Erro ao cadastrar animal", 
-          type: "error" 
-        });
+      if (error.message.includes("Sessão expirada")) {
+        setTimeout(() => navigate('/login'), 2000);
       }
     } finally {
       setIsSubmitting(false);
@@ -279,7 +303,6 @@ export default function CadastroAnimal() {
         <div style={{ width: "32px" }}></div>
       </Header>
 
-      {/* Mensagem de feedback */}
       {message.text && (
         <div style={{
           color: message.type === "success" ? "#38A169" : "#E53E3E",
@@ -294,7 +317,7 @@ export default function CadastroAnimal() {
 
       <form onSubmit={handleSubmit}>
         <Section>
-          <Label>Data e horário</Label>
+          <Label>Data e horário *</Label>
           <Grid>
             <div>
               <Input
@@ -302,21 +325,8 @@ export default function CadastroAnimal() {
                 name="data"
                 value={formData.data}
                 onChange={handleChange}
-                style={{
-                  borderColor: errors.data ? "#E53E3E" : "#E2E8F0"
-                }}
                 required
               />
-              {errors.data && (
-                <span style={{
-                  color: "#E53E3E",
-                  fontSize: "0.8rem",
-                  marginTop: "0.5rem",
-                  display: "block"
-                }}>
-                  {errors.data}
-                </span>
-              )}
             </div>
             <div>
               <Input
@@ -324,21 +334,8 @@ export default function CadastroAnimal() {
                 name="horario"
                 value={formData.horario}
                 onChange={handleChange}
-                style={{
-                  borderColor: errors.horario ? "#E53E3E" : "#E2E8F0"
-                }}
                 required
               />
-              {errors.horario && (
-                <span style={{
-                  color: "#E53E3E",
-                  fontSize: "0.8rem",
-                  marginTop: "0.5rem",
-                  display: "block"
-                }}>
-                  {errors.horario}
-                </span>
-              )}
             </div>
           </Grid>
         </Section>
@@ -351,19 +348,11 @@ export default function CadastroAnimal() {
             value={formData.especie}
             onChange={handleChange}
             placeholder="Ex: Cachorro, Gato, Pássaro, Tartaruga..."
-            style={{
-              borderColor: errors.especie ? "#E53E3E" : "#E2E8F0"
-            }}
             required
           />
-          {errors.especie && (
-            <span style={{
-              color: "#E53E3E",
-              fontSize: "0.8rem",
-              marginTop: "0.5rem",
-              display: "block"
-            }}>
-              {errors.especie}
+          {errors.Especie && (
+            <span style={{ color: "#E53E3E", fontSize: "0.8rem" }}>
+              {errors.Especie}
             </span>
           )}
         </Section>
@@ -383,16 +372,6 @@ export default function CadastroAnimal() {
               </StatusButton>
             ))}
           </ToggleGroup>
-          {errors.idade && (
-            <span style={{
-              color: "#E53E3E",
-              fontSize: "0.8rem",
-              marginTop: "0.5rem",
-              display: "block"
-            }}>
-              {errors.idade}
-            </span>
-          )}
         </Section>
 
         <Section>
@@ -415,16 +394,6 @@ export default function CadastroAnimal() {
               <FaTimes /> Não
             </StatusButton>
           </ToggleGroup>
-          {errors.ferido && (
-            <span style={{
-              color: "#E53E3E",
-              fontSize: "0.8rem",
-              marginTop: "0.5rem",
-              display: "block"
-            }}>
-              {errors.ferido}
-            </span>
-          )}
         </Section>
 
         <Section>
@@ -435,21 +404,8 @@ export default function CadastroAnimal() {
             value={formData.endereco}
             onChange={handleChange}
             placeholder="Digite o endereço completo"
-            style={{
-              borderColor: errors.endereco ? "#E53E3E" : "#E2E8F0"
-            }}
             required
           />
-          {errors.endereco && (
-            <span style={{
-              color: "#E53E3E",
-              fontSize: "0.8rem",
-              marginTop: "0.5rem",
-              display: "block"
-            }}>
-              {errors.endereco}
-            </span>
-          )}
         </Section>
 
         <Section>
@@ -459,20 +415,7 @@ export default function CadastroAnimal() {
             value={formData.descricao}
             onChange={handleChange}
             placeholder="Descreva o animal, suas condições, comportamento, etc."
-            style={{
-              borderColor: errors.descricao ? "#E53E3E" : "#E2E8F0"
-            }}
           />
-          {errors.descricao && (
-            <span style={{
-              color: "#E53E3E",
-              fontSize: "0.8rem",
-              marginTop: "0.5rem",
-              display: "block"
-            }}>
-              {errors.descricao}
-            </span>
-          )}
         </Section>
 
         <SubmitButton type="submit" disabled={isSubmitting}>
