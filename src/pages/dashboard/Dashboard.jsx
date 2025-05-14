@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { FaSignOutAlt, FaPlus, FaPaw } from "react-icons/fa";
+import { supabase } from "../../lib/supabaseClient";
+import DetalhesAnimal from "../detalhesAnimal/DetalhesAnimal";
 
 const Container = styled.div`
   padding: 1rem;
@@ -68,9 +70,14 @@ const AnimalCard = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  cursor: pointer;
 
   &:last-child {
     border-bottom: none;
+  }
+
+  &:hover {
+    background: #f9fafb;
   }
 `;
 
@@ -101,7 +108,7 @@ const ActionButton = styled.button`
   align-items: center;
   gap: 0.5rem;
   padding: 0.7rem 1.5rem;
-  background: ${props => props.primary ? '#4f46e5' : '#10b981'};
+  background: ${(props) => (props.primary ? "#4f46e5" : "#10b981")};
   color: white;
   border: none;
   border-radius: 8px;
@@ -111,7 +118,7 @@ const ActionButton = styled.button`
   transition: all 0.2s;
 
   &:hover {
-    background: ${props => props.primary ? '#4338ca' : '#059669'};
+    background: ${(props) => (props.primary ? "#4338ca" : "#059669")};
     transform: translateY(-2px);
   }
 `;
@@ -121,6 +128,7 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [userType, setUserType] = useState("");
   const [animals, setAnimals] = useState([]);
+  const [animalSelecionado, setAnimalSelecionado] = useState(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -131,27 +139,33 @@ const Dashboard = () => {
       return;
     }
 
-    setUser(JSON.parse(storedUser));
+    const parsedUser = JSON.parse(storedUser);
+    setUser(parsedUser);
     setUserType(storedUserType);
-    
-    // Simulação de dados de animais cadastrados
-    const mockAnimals = [
-      {
-        id: 1,
-        nome: "Rex",
-        especie: "Cachorro",
-        idade: "Adulto",
-        dataCadastro: "15/05/2023"
-      },
-      {
-        id: 2,
-        nome: "Mimi",
-        especie: "Gato",
-        idade: "Filhote",
-        dataCadastro: "10/05/2023"
+
+    const fetchAnimals = async () => {
+      const userId = parsedUser.id; // Obter o ID do usuário logado
+      const { data, error } = await supabase
+        .from("Animais")
+        .select("*")
+        .eq("Id_Usuario", userId)  // Usando o ID do usuário logado
+        .order("Timestamp", { ascending: false });
+
+      if (error) {
+        console.error("Erro ao buscar animais:", error);
+        return;
       }
-    ];
-    setAnimals(mockAnimals);
+
+      const formattedData = data.map((animal) => ({
+        ...animal,
+        nome: animal.Especie, // ou use 'Nome' se esse campo existir na tabela
+        dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
+      }));
+
+      setAnimals(formattedData);
+    };
+
+    fetchAnimals();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -168,7 +182,6 @@ const Dashboard = () => {
 
   return (
     <Container>
-      {/* Header com título centralizado */}
       <Header>
         <Title>Minha Dashboard</Title>
         <ButtonGroup>
@@ -179,34 +192,36 @@ const Dashboard = () => {
         </ButtonGroup>
       </Header>
 
-      {/* Lista de animais cadastrados */}
       <AnimalsList>
-        <h2 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#1e293b' }}>
-          <FaPaw style={{ marginRight: '0.5rem' }} />
+        <h2 style={{ marginTop: 0, marginBottom: "1.5rem", color: "#1e293b" }}>
+          <FaPaw style={{ marginRight: "0.5rem" }} />
           Meus Animais Cadastrados
         </h2>
-        
+
         {animals.length > 0 ? (
-          animals.map(animal => (
-            <AnimalCard key={animal.id}>
+          animals.map((animal) => (
+            <AnimalCard
+              key={animal.id}
+              onClick={() => setAnimalSelecionado(animal)} // Ao clicar, abre o modal
+            >
               <AnimalInfo>
                 <AnimalName>{animal.nome}</AnimalName>
                 <AnimalDetails>
-                  {animal.especie} • {animal.idade} • Cadastrado em: {animal.dataCadastro}
+                  {animal.Especie} • {animal.Idade} • Cadastrado em:{" "}
+                  {animal.dataCadastro}
                 </AnimalDetails>
               </AnimalInfo>
             </AnimalCard>
           ))
         ) : (
-          <p style={{ color: '#64748b', textAlign: 'center' }}>
+          <p style={{ color: "#64748b", textAlign: "center" }}>
             Nenhum animal cadastrado ainda.
           </p>
         )}
       </AnimalsList>
 
-      {/* Botões na parte inferior */}
       <FooterButtons>
-        <ActionButton primary onClick={() => alert('Funcionalidade em desenvolvimento')}>
+        <ActionButton primary onClick={() => alert("Funcionalidade em desenvolvimento")}>
           <FaPaw />
           Ver Todos
         </ActionButton>
@@ -215,6 +230,13 @@ const Dashboard = () => {
           Cadastrar Animal
         </ActionButton>
       </FooterButtons>
+
+      {animalSelecionado && (
+        <DetalhesAnimal
+          animal={animalSelecionado}
+          onClose={() => setAnimalSelecionado(null)} // Fecha o modal
+        />
+      )}
     </Container>
   );
 };
