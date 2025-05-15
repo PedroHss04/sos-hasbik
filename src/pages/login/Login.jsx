@@ -120,7 +120,7 @@ export default function Login() {
         console.log("Empresa encontrada:", empresaData);
         localStorage.setItem("user", JSON.stringify(empresaData));
         localStorage.setItem("userType", "empresa");
-        navigate("/dashboard");
+        navigate("/dashboard_empresa");
         return;
       }
 

@@ -160,6 +160,10 @@ const Dashboard = () => {
         ...animal,
         nome: animal.Especie, // ou use 'Nome' se esse campo existir na tabela
         dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
+        idade: animal.Idade,
+        descricao: animal.Descricao
+        
+
       }));
 
       setAnimals(formattedData);
@@ -207,7 +211,7 @@ const Dashboard = () => {
               <AnimalInfo>
                 <AnimalName>{animal.nome}</AnimalName>
                 <AnimalDetails>
-                  {animal.Especie} • {animal.Idade} • Cadastrado em:{" "}
+                  {animal.Especie} • {animal.Idade} • {animal.Descricao} • Cadastrado em:{" "}
                   {animal.dataCadastro}
                 </AnimalDetails>
               </AnimalInfo>
