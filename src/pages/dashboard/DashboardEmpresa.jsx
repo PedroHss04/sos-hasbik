@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaSignOutAlt, FaBuilding, FaChartLine, FaClock, FaTimesCircle } from "react-icons/fa";
+import {
+  FaSignOutAlt,
+  FaBuilding,
+  FaChartLine,
+  FaClock,
+  FaTimesCircle,
+} from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
 // Estilos (reutilizáveis ou adaptados)
@@ -95,7 +101,7 @@ const RecusadaMessage = styled(AnaliseMessage)`
 const CadastroFuncionarioButton = styled.button`
   margin-top: 1rem;
   padding: 0.75rem 1.5rem;
-  background-color: #2563eb;  /* azul */
+  background-color: #2563eb; /* azul */
   color: white;
   border: none;
   border-radius: 8px;
@@ -168,7 +174,8 @@ const DashboardEmpresa = () => {
       <Container>
         <PendenteMessage>
           <FaClock />
-          Sua empresa está aguardando análise. Por favor, aguarde a aprovação para acessar todas as funcionalidades do dashboard.
+          Sua empresa está aguardando análise. Por favor, aguarde a aprovação
+          para acessar todas as funcionalidades do dashboard.
         </PendenteMessage>
         <Header>
           <Title>Dashboard - Empresa</Title>
@@ -189,7 +196,8 @@ const DashboardEmpresa = () => {
       <Container>
         <RecusadaMessage>
           <FaTimesCircle />
-          Sua empresa foi recusada. Entre em contato com o suporte para mais informações.
+          Sua empresa foi recusada. Entre em contato com o suporte para mais
+          informações.
         </RecusadaMessage>
         <Header>
           <Title>Dashboard - Empresa</Title>
@@ -218,7 +226,9 @@ const DashboardEmpresa = () => {
 
       <WelcomeMessage>
         Bem-vindo(a), <strong>{user.nome}</strong>!
-        <p>Você está logado como <strong>Empresa</strong>.</p>
+        <p>
+          Você está logado como <strong>Empresa</strong>.
+        </p>
       </WelcomeMessage>
 
       <CompanySection>
@@ -228,7 +238,9 @@ const DashboardEmpresa = () => {
         </SectionTitle>
         <p>Gerencie seus serviços, colaboradores e relatórios aqui.</p>
 
-        <CadastroFuncionarioButton onClick={() => navigate("/cadastro_funcionario")}>
+        <CadastroFuncionarioButton
+          onClick={() => navigate("/cadastro_funcionario")}
+        >
           Cadastrar Funcionário
         </CadastroFuncionarioButton>
       </CompanySection>

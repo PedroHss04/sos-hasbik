@@ -71,7 +71,7 @@ export default function Login() {
     try {
       // Validação com Zod
       const validatedData = loginSchema.parse(form);
-      
+
       console.log("Tentando login com:", { email: validatedData.email });
       const senhaHash = hashPassword(validatedData.senha);
       console.log("Hash da senha gerado");
@@ -85,7 +85,10 @@ export default function Login() {
         .eq("senha_hash", senhaHash)
         .maybeSingle();
 
-      console.log("Resposta da busca de usuário:", { usuarioData, usuarioError });
+      console.log("Resposta da busca de usuário:", {
+        usuarioData,
+        usuarioError,
+      });
 
       if (usuarioError) {
         console.error("Erro ao buscar usuário:", usuarioError);
@@ -95,8 +98,20 @@ export default function Login() {
       if (usuarioData) {
         console.log("Usuário encontrado:", usuarioData);
         localStorage.setItem("user", JSON.stringify(usuarioData));
-        localStorage.setItem("userType", "cidadao");
-        navigate("/dashboard");
+        localStorage.setItem("userType", usuarioData.tipoUsuario);
+        if (usuarioData.tipoUsuario === "admin") {
+          navigate("/dashboard_admin");
+        } else if (usuarioData.tipoUsuario === "cidadao") {
+          navigate("/dashboard");
+        } else if (usuarioData.tipoUsuario === "funcionario") {
+          navigate("/dashboard");
+        } else {
+          // Caso tipo inesperado
+          setMensagem({
+            texto: "Tipo de usuário não reconhecido",
+            tipo: "erro",
+          });
+        }
         return;
       }
 
@@ -109,7 +124,10 @@ export default function Login() {
         .eq("senha_hash", senhaHash)
         .maybeSingle();
 
-      console.log("Resposta da busca de empresa:", { empresaData, empresaError });
+      console.log("Resposta da busca de empresa:", {
+        empresaData,
+        empresaError,
+      });
 
       if (empresaError) {
         console.error("Erro ao buscar empresa:", empresaError);
@@ -130,7 +148,7 @@ export default function Login() {
       });
     } catch (error) {
       console.error("Erro detalhado:", error);
-      
+
       if (error.errors) {
         // Erro de validação do Zod
         const validationErrors = {};
@@ -140,7 +158,9 @@ export default function Login() {
         setErrors(validationErrors);
       } else {
         setMensagem({
-          texto: `⚠️ Erro ao fazer login: ${error.message || "Erro desconhecido"}`,
+          texto: `⚠️ Erro ao fazer login: ${
+            error.message || "Erro desconhecido"
+          }`,
           tipo: "erro",
         });
       }
@@ -150,16 +170,16 @@ export default function Login() {
   };
 
   const handleEmailChange = (e) => {
-    setForm(prev => ({ ...prev, email: e.target.value }));
+    setForm((prev) => ({ ...prev, email: e.target.value }));
     if (errors.email) {
-      setErrors(prev => ({ ...prev, email: undefined }));
+      setErrors((prev) => ({ ...prev, email: undefined }));
     }
   };
 
   const handleSenhaChange = (e) => {
-    setForm(prev => ({ ...prev, senha: e.target.value }));
+    setForm((prev) => ({ ...prev, senha: e.target.value }));
     if (errors.senha) {
-      setErrors(prev => ({ ...prev, senha: undefined }));
+      setErrors((prev) => ({ ...prev, senha: undefined }));
     }
   };
 

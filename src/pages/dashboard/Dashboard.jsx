@@ -134,7 +134,7 @@ const Dashboard = () => {
     const storedUser = localStorage.getItem("user");
     const storedUserType = localStorage.getItem("userType");
 
-    if (!storedUser || !storedUserType) {
+    if (!storedUser || storedUserType !== "cidadao") {
       navigate("/login");
       return;
     }
@@ -148,7 +148,7 @@ const Dashboard = () => {
       const { data, error } = await supabase
         .from("Animais")
         .select("*")
-        .eq("Id_Usuario", userId)  // Usando o ID do usuário logado
+        .eq("Id_Usuario", userId) // Usando o ID do usuário logado
         .order("Timestamp", { ascending: false });
 
       if (error) {
@@ -161,9 +161,7 @@ const Dashboard = () => {
         nome: animal.Especie, // ou use 'Nome' se esse campo existir na tabela
         dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
         idade: animal.Idade,
-        descricao: animal.Descricao
-        
-
+        descricao: animal.Descricao,
       }));
 
       setAnimals(formattedData);
@@ -211,8 +209,8 @@ const Dashboard = () => {
               <AnimalInfo>
                 <AnimalName>{animal.nome}</AnimalName>
                 <AnimalDetails>
-                  {animal.Especie} • {animal.Idade} • {animal.Descricao} • Cadastrado em:{" "}
-                  {animal.dataCadastro}
+                  {animal.Especie} • {animal.Idade} • {animal.Descricao} •
+                  Cadastrado em: {animal.dataCadastro}
                 </AnimalDetails>
               </AnimalInfo>
             </AnimalCard>
@@ -225,7 +223,10 @@ const Dashboard = () => {
       </AnimalsList>
 
       <FooterButtons>
-        <ActionButton primary onClick={() => alert("Funcionalidade em desenvolvimento")}>
+        <ActionButton
+          primary
+          onClick={() => alert("Funcionalidade em desenvolvimento")}
+        >
           <FaPaw />
           Ver Todos
         </ActionButton>
