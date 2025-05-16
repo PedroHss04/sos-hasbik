@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import FormGroup from "../../geral-components/FormGroup";
 import SelectGroup from "./components/SelectGroup";
 import { Button } from "../../geral-components/Button";
-import { FaUserCircle, FaArrowLeft, FaFileUpload } from "react-icons/fa";
+import { FaUserPlus, FaArrowLeft } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 import { hashPassword } from "../../utils/passwordUtils";
-import { cadastroEmpresaSchema } from "../../utils/validationSchemas";
+import { cadastroCidadaoSchema } from "../../utils/validationSchemas"; // Reutilizamos o schema
 
 const Container = styled.div`
   width: 100%;
@@ -15,17 +15,17 @@ const Container = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(to right, #dfe9f3, #ffffff);
+  background: linear-gradient(to right, #f0f2f5, #e1e6e8);
   padding: 2rem;
 `;
 
 const FormWrapper = styled.div`
   background: #fff;
   padding: 2rem;
-  border-radius: 16px;
+  border-radius: 8px;
   width: 100%;
-  max-width: 400px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 `;
 
 const Header = styled.div`
@@ -36,76 +36,38 @@ const Header = styled.div`
 `;
 
 const Title = styled.h2`
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: bold;
-  color: #333;
-`;
-
-const AvatarIcon = styled(FaUserCircle)`
-  font-size: 32px;
-  color: #444;
+  color: #374151;
 `;
 
 const BackButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #6b7280;
+  padding: 0.75rem 1.25rem;
+  background-color: #4b5563;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 1rem;
   margin-bottom: 1rem;
 
   &:hover {
-    background: #4b5563;
+    background-color: #374151;
   }
 `;
 
-const FileInputWrapper = styled.div`
-  margin-bottom: 1rem;
-`;
-
-const FileLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: #f3f4f6;
-  color: #4b5563;
-  padding: 0.75rem;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  border: 1px solid #d1d5db;
-  width: 100%;
-  box-sizing: border-box;
-
-  &:hover {
-    background-color: #e5e7eb;
-  }
-`;
-
-const FileInput = styled.input`
-  display: none;
-`;
-
-const FileName = styled.span`
-  font-size: 0.875rem;
-  color: #374151;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-`;
-
-const CadastroEmpresa = () => {
+const CadastroFuncionario = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mensagem, setMensagem] = useState({ texto: "", tipo: "" });
   const [errors, setErrors] = useState({});
+  const [empresaLogada, setEmpresaLogada] = useState(null);
   const [form, setForm] = useState({
     nome: "",
-    cnpj: "",
+    cpf: "",
     email: "",
     telefone: "",
     estado: "",
@@ -114,9 +76,48 @@ const CadastroEmpresa = () => {
     endereco: "",
     senha: "",
   });
-  const [arquivoZip, setArquivoZip] = useState(null);
-  const [nomeArquivoZip, setNomeArquivoZip] = useState("");
-  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const getEmpresaLogada = async () => {
+      const userString = localStorage.getItem("user");
+
+      if (!userString) {
+        navigate("/login");
+        return;
+      }
+
+      let user;
+      try {
+        user = JSON.parse(userString);
+      } catch (err) {
+        console.error("Erro ao parsear user do localStorage:", err);
+        navigate("/login");
+        return;
+      }
+
+      if (!user.id) {
+        console.error("ID da empresa não encontrado no user");
+        navigate("/login");
+        return;
+      }
+
+      const { data: empresa, error } = await supabase
+        .from("empresas")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Erro ao buscar dados da empresa:", error);
+        setMensagem({ texto: "Erro ao carregar dados da empresa.", tipo: "erro" });
+        return;
+      }
+
+      setEmpresaLogada(empresa);
+    };
+
+    getEmpresaLogada();
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -126,76 +127,41 @@ const CadastroEmpresa = () => {
     }
   };
 
-  const handleArquivoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Atualiza o estado imediatamente ao selecionar o arquivo
-      setArquivoZip(file);
-      setNomeArquivoZip(file.name);
-    } else {
-      setArquivoZip(null);
-      setNomeArquivoZip("");
-    }
-  };
-
-  // useEffect para verificar o tipo de arquivo após a atualização do estado
- useEffect(() => {
-  if (arquivoZip && !arquivoZip.name.toLowerCase().endsWith(".zip")) {
-    alert("Por favor, selecione um arquivo ZIP.");
-    setArquivoZip(null);
-    setNomeArquivoZip("");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }
-}, [arquivoZip, fileInputRef]);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSubmitting(true);
     setMensagem({ texto: "", tipo: "" });
     setErrors({});
 
-    if (!arquivoZip) {
-      setErrors(prev => ({ ...prev, arquivo_zip: "Por favor, selecione um arquivo ZIP." }));
+    if (empresaLogada?.aprovacao !== "aprovada") {
+      setMensagem({ texto: "Sua empresa precisa ser aprovada para cadastrar funcionários.", tipo: "alerta" });
       setIsSubmitting(false);
       return;
     }
 
     try {
-      // Validação com Zod
-      const validatedData = cadastroEmpresaSchema.parse(form);
+      const validatedData = cadastroCidadaoSchema.parse(form);
 
-      const empresaData = {
+      const funcionarioData = {
         ...validatedData,
         senha_hash: hashPassword(validatedData.senha),
-        aprovacao: "pendente", // Define o status de aprovação como "pendente"
+        tipoUsuario: "funcionario",
+        empresa_id: empresaLogada.id,
       };
-      delete empresaData.senha; // Remove a senha do objeto antes de enviar
-
-      let arquivoUrl = null;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("documentos") // Especifica o bucket "documentos"
-        .upload(`pendente/${validatedData.cnpj}/${arquivoZip.name}`, arquivoZip); // Envia para a pasta "pendente"
-
-      if (uploadError) {
-        throw new Error(`Erro ao enviar arquivo: ${uploadError.message}`);
-      }
-      arquivoUrl = `${supabase.supabaseUrl}/storage/v1/object/public/documentos/pendente/${validatedData.cnpj}/${arquivoZip.name}`; // URL correta para o arquivo em "pendente"
-      empresaData.arquivo_zip_url = arquivoUrl;
+      delete funcionarioData.senha;
 
       const { data, error } = await supabase
-        .from("empresas")
-        .insert([empresaData])
+        .from("usuarios")
+        .insert([funcionarioData])
         .select();
 
       if (error) throw error;
 
-      setMensagem({ texto: "✅ Cadastro realizado com sucesso!", tipo: "sucesso" });
+      setMensagem({ texto: "✅ Funcionário cadastrado com sucesso!", tipo: "sucesso" });
       event.target.reset();
       setForm({
         nome: "",
-        cnpj: "",
+        cpf: "",
         email: "",
         telefone: "",
         estado: "",
@@ -204,13 +170,10 @@ const CadastroEmpresa = () => {
         endereco: "",
         senha: "",
       });
-      setArquivoZip(null);
-      setNomeArquivoZip("");
     } catch (error) {
-      console.error("Erro ao cadastrar:", error);
+      console.error("Erro ao cadastrar funcionário:", error);
 
       if (error.errors) {
-        // Erro de validação do Zod
         const validationErrors = {};
         error.errors.forEach((err) => {
           validationErrors[err.path[0]] = err.message;
@@ -224,16 +187,66 @@ const CadastroEmpresa = () => {
     }
   };
 
+  if (!empresaLogada) {
+    return (
+      <Container>
+        <FormWrapper>
+          <BackButton onClick={() => navigate("/dashboard-empresa")}>
+            <FaArrowLeft />
+            Voltar para o Dashboard
+          </BackButton>
+          <Title>Cadastro de Funcionário</Title>
+          {mensagem.texto && (
+            <div
+              style={{
+                color: mensagem.tipo === "sucesso" ? "green" : "red",
+                marginBottom: "1rem",
+              }}
+            >
+              {mensagem.texto}
+            </div>
+          )}
+          <p>Carregando dados da empresa...</p>
+        </FormWrapper>
+      </Container>
+    );
+  }
+
+  if (empresaLogada.aprovacao !== "aprovada") {
+    return (
+      <Container>
+        <FormWrapper>
+          <BackButton onClick={() => navigate("/dashboard-empresa")}>
+            <FaArrowLeft />
+            Voltar para o Dashboard
+          </BackButton>
+          <Title>Cadastro de Funcionário</Title>
+          {mensagem.texto && (
+            <div
+              style={{
+                color: mensagem.tipo === "sucesso" ? "green" : "red",
+                marginBottom: "1rem",
+              }}
+            >
+              {mensagem.texto}
+            </div>
+          )}
+          <p>Sua empresa precisa ser aprovada para cadastrar funcionários.</p>
+        </FormWrapper>
+      </Container>
+    );
+  }
+
   return (
     <Container>
       <FormWrapper>
-        <BackButton onClick={() => navigate("/login")}>
+        <BackButton onClick={() => navigate("/dashboard_empresa")}>
           <FaArrowLeft />
-          Voltar para Login
+          Voltar para o Dashboard
         </BackButton>
         <Header>
-          <Title>Cadastro Empresa</Title>
-          <AvatarIcon />
+          <Title>Cadastro de Funcionário</Title>
+          <FaUserPlus size={32} color="#4a5568" />
         </Header>
         {mensagem.texto && (
           <div
@@ -247,19 +260,19 @@ const CadastroEmpresa = () => {
         )}
         <form onSubmit={handleSubmit}>
           <FormGroup
-            label="CNPJ"
-            name="cnpj"
-            value={form.cnpj}
-            onChange={handleChange}
-            error={errors.cnpj}
-            required
-          />
-          <FormGroup
             label="Nome"
             name="nome"
             value={form.nome}
             onChange={handleChange}
             error={errors.nome}
+            required
+          />
+          <FormGroup
+            label="CPF"
+            name="cpf"
+            value={form.cpf}
+            onChange={handleChange}
+            error={errors.cpf}
             required
           />
           <FormGroup
@@ -325,27 +338,8 @@ const CadastroEmpresa = () => {
             required
           />
 
-          <FileInputWrapper>
-            <FileLabel htmlFor="arquivo_zip">
-              <FaFileUpload />
-              {nomeArquivoZip ? <FileName>{nomeArquivoZip}</FileName> : "Selecionar Arquivo ZIP"}
-            </FileLabel>
-            <FileInput
-              type="file"
-              id="arquivo_zip"
-              accept=".zip"
-              onChange={handleArquivoChange}
-              ref={fileInputRef}
-            />
-            {errors.arquivo_zip && (
-              <div style={{ color: "red", fontSize: "0.875rem", marginTop: "0.25rem" }}>
-                {errors.arquivo_zip}
-              </div>
-            )}
-          </FileInputWrapper>
-
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Cadastrando..." : "Cadastrar"}
+            {isSubmitting ? "Cadastrando..." : "Cadastrar Funcionário"}
           </Button>
         </form>
       </FormWrapper>
@@ -353,4 +347,4 @@ const CadastroEmpresa = () => {
   );
 };
 
-export default CadastroEmpresa;
+export default CadastroFuncionario;

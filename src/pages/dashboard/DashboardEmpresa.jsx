@@ -1,11 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaSignOutAlt, FaBuilding, FaChartLine } from "react-icons/fa";
+import {
+  FaSignOutAlt,
+  FaBuilding,
+  FaChartLine,
+  FaClock,
+  FaTimesCircle,
+} from "react-icons/fa";
+import { supabase } from "../../lib/supabaseClient";
 
 // Estilos (reutilizáveis ou adaptados)
 const Container = styled.div`
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
 `;
 
 const Header = styled.div`
@@ -13,6 +25,8 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  width: 100%;
+  max-width: 800px;
 `;
 
 const Title = styled.h1`
@@ -48,6 +62,8 @@ const CompanySection = styled.section`
   padding: 1.5rem;
   border-radius: 8px;
   margin-top: 2rem;
+  width: 100%;
+  max-width: 800px;
 `;
 
 const SectionTitle = styled.h2`
@@ -59,12 +75,53 @@ const SectionTitle = styled.h2`
   margin-bottom: 1rem;
 `;
 
+const AnaliseMessage = styled.div`
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  text-align: center;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+`;
+
+const PendenteMessage = styled(AnaliseMessage)`
+  background-color: #fefcbf;
+  color: #92400e;
+`;
+
+const RecusadaMessage = styled(AnaliseMessage)`
+  background-color: #fdecea;
+  color: #9f1239;
+`;
+
+// Botão para cadastrar funcionário
+const CadastroFuncionarioButton = styled.button`
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #2563eb; /* azul */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #1d4ed8;
+  }
+`;
+
 // Componente Principal
 const DashboardEmpresa = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [aprovacaoStatus, setAprovacaoStatus] = useState(null);
+  const [loadingApprovalStatus, setLoadingApprovalStatus] = useState(true);
 
-  // Verifica autenticação ao carregar
+  // Verifica autenticação e status de aprovação ao carregar
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedUserType = localStorage.getItem("userType");
@@ -74,7 +131,30 @@ const DashboardEmpresa = () => {
       return;
     }
 
-    setUser(JSON.parse(storedUser));
+    const parsedUser = JSON.parse(storedUser);
+    setUser(parsedUser);
+
+    const fetchApprovalStatus = async () => {
+      setLoadingApprovalStatus(true);
+      try {
+        const { data, error } = await supabase
+          .from("empresas")
+          .select("aprovacao")
+          .eq("id", parsedUser.id) // Assumindo que o ID da empresa está no objeto do usuário
+          .single();
+
+        if (error) {
+          console.error("Erro ao buscar status de aprovação:", error);
+          setAprovacaoStatus("erro");
+        } else if (data) {
+          setAprovacaoStatus(data.aprovacao);
+        }
+      } finally {
+        setLoadingApprovalStatus(false);
+      }
+    };
+
+    fetchApprovalStatus();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -85,6 +165,55 @@ const DashboardEmpresa = () => {
 
   if (!user) return null;
 
+  if (loadingApprovalStatus) {
+    return <Container>Carregando status de aprovação...</Container>;
+  }
+
+  if (aprovacaoStatus === "pendente") {
+    return (
+      <Container>
+        <PendenteMessage>
+          <FaClock />
+          Sua empresa está aguardando análise. Por favor, aguarde a aprovação
+          para acessar todas as funcionalidades do dashboard.
+        </PendenteMessage>
+        <Header>
+          <Title>Dashboard - Empresa</Title>
+          <LogoutButton onClick={handleLogout}>
+            <FaSignOutAlt />
+            Sair
+          </LogoutButton>
+        </Header>
+        <WelcomeMessage>
+          Bem-vindo(a), <strong>{user.nome}</strong>!
+        </WelcomeMessage>
+      </Container>
+    );
+  }
+
+  if (aprovacaoStatus === "recusada") {
+    return (
+      <Container>
+        <RecusadaMessage>
+          <FaTimesCircle />
+          Sua empresa foi recusada. Entre em contato com o suporte para mais
+          informações.
+        </RecusadaMessage>
+        <Header>
+          <Title>Dashboard - Empresa</Title>
+          <LogoutButton onClick={handleLogout}>
+            <FaSignOutAlt />
+            Sair
+          </LogoutButton>
+        </Header>
+        <WelcomeMessage>
+          Bem-vindo(a), <strong>{user.nome}</strong>!
+        </WelcomeMessage>
+      </Container>
+    );
+  }
+
+  // Se o status não for pendente nem recusado (assumindo que "aprovada" ou algum outro valor indica acesso)
   return (
     <Container>
       <Header>
@@ -97,19 +226,25 @@ const DashboardEmpresa = () => {
 
       <WelcomeMessage>
         Bem-vindo(a), <strong>{user.nome}</strong>!
-        <p>Você está logado como <strong>Empresa</strong>.</p>
+        <p>
+          Você está logado como <strong>Empresa</strong>.
+        </p>
       </WelcomeMessage>
 
-      {/* Seção exclusiva para empresas */}
       <CompanySection>
         <SectionTitle>
           <FaBuilding />
           Área da Empresa
         </SectionTitle>
         <p>Gerencie seus serviços, colaboradores e relatórios aqui.</p>
+
+        <CadastroFuncionarioButton
+          onClick={() => navigate("/cadastro_funcionario")}
+        >
+          Cadastrar Funcionário
+        </CadastroFuncionarioButton>
       </CompanySection>
 
-      {/* Seção de métricas (exemplo) */}
       <CompanySection>
         <SectionTitle>
           <FaChartLine />

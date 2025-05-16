@@ -101,7 +101,8 @@ const CadastroCidadao = () => {
       
       const userData = {
         ...validatedData,
-        senha_hash: hashPassword(validatedData.senha)
+        senha_hash: hashPassword(validatedData.senha),
+        tipoUsuario: "comum"
       };
       delete userData.senha; // Remove a senha do objeto antes de enviar
 
