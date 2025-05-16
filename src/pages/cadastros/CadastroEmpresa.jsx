@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import FormGroup from "../../geral-components/FormGroup";
 import SelectGroup from "./components/SelectGroup";
 import { Button } from "../../geral-components/Button";
@@ -103,6 +104,9 @@ const CadastroEmpresa = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mensagem, setMensagem] = useState({ texto: "", tipo: "" });
   const [errors, setErrors] = useState({});
+  const [estados, setEstados] = useState([]);
+  const [cidades, setCidades] = useState([]);
+
   const [form, setForm] = useState({
     nome: "",
     cnpj: "",
@@ -125,6 +129,45 @@ const CadastroEmpresa = () => {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
+
+  useEffect(() => {
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
+      .then((res) => {
+        const estadosOrdenados = res.data.map((estado) => estado.sigla); // apenas sigla
+        setEstados(estadosOrdenados);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar estados:", err);
+      });
+  }, []);
+  
+
+  // Buscar cidades com base no estado selecionado
+  useEffect(() => {
+    if (!form.estado) {
+      setCidades([]);
+      return;
+    }
+  
+    // Buscar o ID do estado a partir da sigla
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
+      .then((resEstados) => {
+        const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
+        if (estadoEncontrado) {
+          return axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`);
+        } else {
+          throw new Error("Estado não encontrado.");
+        }
+      })
+      .then((resCidades) => {
+        const listaCidades = resCidades.data.map(cidade => cidade.nome);
+        setCidades(listaCidades);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar cidades:", err);
+        setCidades([]);
+      });
+  }, [form.estado]);
 
   const handleArquivoChange = (e) => {
     const file = e.target.files[0];
@@ -288,23 +331,23 @@ const CadastroEmpresa = () => {
             error={errors.telefone}
             required
           />
-
           <SelectGroup
             label="Estado"
             name="estado"
             value={form.estado}
             onChange={handleChange}
             error={errors.estado}
-            options={["SP", "RJ", "MG"]}
+            options={estados}
             required
           />
+
           <SelectGroup
             label="Cidade"
             name="cidade"
             value={form.cidade}
             onChange={handleChange}
             error={errors.cidade}
-            options={["São Paulo", "Rio de Janeiro", "Belo Horizonte"]}
+            options={cidades}
             required
           />
 
