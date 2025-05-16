@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import FormGroup from "../../geral-components/FormGroup";
 import SelectGroup from "./components/SelectGroup";
 import { Button } from "../../geral-components/Button";
@@ -69,6 +70,9 @@ const CadastroCidadao = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mensagem, setMensagem] = useState({ texto: "", tipo: "" });
   const [errors, setErrors] = useState({});
+  const [estados, setEstados] = useState([]);
+  const [cidades, setCidades] = useState([]);
+
   const [form, setForm] = useState({
     nome: "",
     cpf: "",
@@ -89,6 +93,47 @@ const CadastroCidadao = () => {
     }
   };
 
+  // Buscar estados do Brasil (IBGE)
+  useEffect(() => {
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
+      .then((res) => {
+        const estadosOrdenados = res.data.map((estado) => estado.sigla); // apenas sigla
+        setEstados(estadosOrdenados);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar estados:", err);
+      });
+  }, []);
+  
+
+  // Buscar cidades com base no estado selecionado
+  useEffect(() => {
+    if (!form.estado) {
+      setCidades([]);
+      return;
+    }
+  
+    // Buscar o ID do estado a partir da sigla
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
+      .then((resEstados) => {
+        const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
+        if (estadoEncontrado) {
+          return axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`);
+        } else {
+          throw new Error("Estado não encontrado.");
+        }
+      })
+      .then((resCidades) => {
+        const listaCidades = resCidades.data.map(cidade => cidade.nome);
+        setCidades(listaCidades);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar cidades:", err);
+        setCidades([]);
+      });
+  }, [form.estado]);
+  
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -96,15 +141,14 @@ const CadastroCidadao = () => {
     setErrors({});
 
     try {
-      // Validação com Zod
       const validatedData = cadastroCidadaoSchema.parse(form);
-      
+
       const userData = {
         ...validatedData,
         senha_hash: hashPassword(validatedData.senha),
         tipoUsuario: "comum"
       };
-      delete userData.senha; // Remove a senha do objeto antes de enviar
+      delete userData.senha;
 
       const { data, error } = await supabase
         .from("usuarios")
@@ -128,9 +172,8 @@ const CadastroCidadao = () => {
       });
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
-      
+
       if (error.errors) {
-        // Erro de validação do Zod
         const validationErrors = {};
         error.errors.forEach((err) => {
           validationErrors[err.path[0]] = err.message;
@@ -164,48 +207,11 @@ const CadastroCidadao = () => {
           </div>
         )}
         <form onSubmit={handleSubmit}>
-          <FormGroup 
-            label="Nome" 
-            name="nome" 
-            value={form.nome}
-            onChange={handleChange}
-            error={errors.nome}
-            required 
-          />
-          <FormGroup 
-            label="CPF" 
-            name="cpf" 
-            value={form.cpf}
-            onChange={handleChange}
-            error={errors.cpf}
-            required 
-          />
-          <FormGroup 
-            label="Senha" 
-            name="senha" 
-            type="password" 
-            value={form.senha}
-            onChange={handleChange}
-            error={errors.senha}
-            required 
-          />
-          <FormGroup 
-            label="Email" 
-            name="email" 
-            type="email" 
-            value={form.email}
-            onChange={handleChange}
-            error={errors.email}
-            required 
-          />
-          <FormGroup 
-            label="Telefone" 
-            name="telefone" 
-            value={form.telefone}
-            onChange={handleChange}
-            error={errors.telefone}
-            required 
-          />
+          <FormGroup label="Nome" name="nome" value={form.nome} onChange={handleChange} error={errors.nome} required />
+          <FormGroup label="CPF" name="cpf" value={form.cpf} onChange={handleChange} error={errors.cpf} required />
+          <FormGroup label="Senha" name="senha" type="password" value={form.senha} onChange={handleChange} error={errors.senha} required />
+          <FormGroup label="Email" name="email" type="email" value={form.email} onChange={handleChange} error={errors.email} required />
+          <FormGroup label="Telefone" name="telefone" value={form.telefone} onChange={handleChange} error={errors.telefone} required />
 
           <SelectGroup
             label="Estado"
@@ -213,35 +219,22 @@ const CadastroCidadao = () => {
             value={form.estado}
             onChange={handleChange}
             error={errors.estado}
-            options={["SP", "RJ", "MG"]}
+            options={estados}
             required
           />
+
           <SelectGroup
             label="Cidade"
             name="cidade"
             value={form.cidade}
             onChange={handleChange}
             error={errors.cidade}
-            options={["São Paulo", "Rio de Janeiro", "Belo Horizonte"]}
+            options={cidades}
             required
           />
 
-          <FormGroup 
-            label="CEP" 
-            name="cep" 
-            value={form.cep}
-            onChange={handleChange}
-            error={errors.cep}
-            required 
-          />
-          <FormGroup 
-            label="Endereço" 
-            name="endereco" 
-            value={form.endereco}
-            onChange={handleChange}
-            error={errors.endereco}
-            required 
-          />
+          <FormGroup label="CEP" name="cep" value={form.cep} onChange={handleChange} error={errors.cep} required />
+          <FormGroup label="Endereço" name="endereco" value={form.endereco} onChange={handleChange} error={errors.endereco} required />
 
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Cadastrando..." : "Cadastrar"}
