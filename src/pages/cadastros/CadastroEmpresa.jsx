@@ -131,7 +131,10 @@ const CadastroEmpresa = () => {
   };
 
   useEffect(() => {
-    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
+    axios
+      .get(
+        "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
+      )
       .then((res) => {
         const estadosOrdenados = res.data.map((estado) => estado.sigla); // apenas sigla
         setEstados(estadosOrdenados);
@@ -140,27 +143,29 @@ const CadastroEmpresa = () => {
         console.error("Erro ao buscar estados:", err);
       });
   }, []);
-  
 
-  // Buscar cidades com base no estado selecionado
   useEffect(() => {
     if (!form.estado) {
       setCidades([]);
       return;
     }
-  
-    // Buscar o ID do estado a partir da sigla
-    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
+
+    axios
+      .get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
       .then((resEstados) => {
-        const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
+        const estadoEncontrado = resEstados.data.find(
+          (e) => e.sigla === form.estado
+        );
         if (estadoEncontrado) {
-          return axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`);
+          return axios.get(
+            `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`
+          );
         } else {
           throw new Error("Estado não encontrado.");
         }
       })
       .then((resCidades) => {
-        const listaCidades = resCidades.data.map(cidade => cidade.nome);
+        const listaCidades = resCidades.data.map((cidade) => cidade.nome);
         setCidades(listaCidades);
       })
       .catch((err) => {
@@ -172,7 +177,6 @@ const CadastroEmpresa = () => {
   const handleArquivoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Atualiza o estado imediatamente ao selecionar o arquivo
       setArquivoZip(file);
       setNomeArquivoZip(file.name);
     } else {
@@ -181,17 +185,16 @@ const CadastroEmpresa = () => {
     }
   };
 
-  // useEffect para verificar o tipo de arquivo após a atualização do estado
- useEffect(() => {
-  if (arquivoZip && !arquivoZip.name.toLowerCase().endsWith(".zip")) {
-    alert("Por favor, selecione um arquivo ZIP.");
-    setArquivoZip(null);
-    setNomeArquivoZip("");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  useEffect(() => {
+    if (arquivoZip && !arquivoZip.name.toLowerCase().endsWith(".zip")) {
+      alert("Por favor, selecione um arquivo ZIP.");
+      setArquivoZip(null);
+      setNomeArquivoZip("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
-  }
-}, [arquivoZip, fileInputRef]);
+  }, [arquivoZip, fileInputRef]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -200,33 +203,43 @@ const CadastroEmpresa = () => {
     setErrors({});
 
     if (!arquivoZip) {
-      setErrors(prev => ({ ...prev, arquivo_zip: "Por favor, selecione um arquivo ZIP." }));
+      setErrors((prev) => ({
+        ...prev,
+        arquivo_zip: "Por favor, selecione um arquivo ZIP.",
+      }));
       setIsSubmitting(false);
       return;
     }
 
     try {
-      // Validação com Zod
       const validatedData = cadastroEmpresaSchema.parse(form);
 
       const empresaData = {
         ...validatedData,
         senha_hash: hashPassword(validatedData.senha),
-        aprovacao: "pendente", // Define o status de aprovação como "pendente"
+        aprovacao: "pendente",
       };
-      delete empresaData.senha; // Remove a senha do objeto antes de enviar
+      delete empresaData.senha;
 
-      let arquivoUrl = null;
+      // Define o caminho da pasta no bucket
+      const caminhoPasta = `pendente/${validatedData.cnpj}/`;
+
+      // Upload do arquivo ZIP para o bucket
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("documentos") // Especifica o bucket "documentos"
-        .upload(`pendente/${validatedData.cnpj}/${arquivoZip.name}`, arquivoZip); // Envia para a pasta "pendente"
+        .from("documentos")
+        .upload(`${caminhoPasta}${arquivoZip.name}`, arquivoZip);
 
       if (uploadError) {
         throw new Error(`Erro ao enviar arquivo: ${uploadError.message}`);
       }
-      arquivoUrl = `${supabase.supabaseUrl}/storage/v1/object/public/documentos/pendente/${validatedData.cnpj}/${arquivoZip.name}`; // URL correta para o arquivo em "pendente"
-      empresaData.arquivo_zip_url = arquivoUrl;
 
+      const arquivoUrl = `${supabase.supabaseUrl}/storage/v1/object/public/documentos/${caminhoPasta}${arquivoZip.name}`;
+
+      // Salva a URL do arquivo e o caminho da pasta no objeto a ser inserido
+      empresaData.arquivo_zip_url = arquivoUrl;
+      empresaData.pasta_arquivo = caminhoPasta;
+
+      // Inserção no banco e captura do registro criado com o ID
       const { data, error } = await supabase
         .from("empresas")
         .insert([empresaData])
@@ -234,7 +247,31 @@ const CadastroEmpresa = () => {
 
       if (error) throw error;
 
-      setMensagem({ texto: "✅ Cadastro realizado com sucesso!", tipo: "sucesso" });
+      // Pega o ID da empresa cadastrada corretamente a partir do retorno (data)
+      const empresaId = data[0].id;
+
+      const tipoDocumento = "comprovante_endereco"; // ou outro tipo conforme o arquivo enviado
+
+      // Insere o documento relacionado
+      const { data: docData, error: docError } = await supabase
+        .from("documentos")
+        .insert([
+          {
+            empresa_id: empresaId,
+            tipo: tipoDocumento,
+            url: arquivoUrl,
+            status: "pendente",
+            pasta_arquivo: caminhoPasta,
+            nome_arquivo: arquivoZip.name, // Stores just the file name
+          },
+        ]);
+
+      if (docError) throw docError;
+
+      setMensagem({
+        texto: "✅ Cadastro realizado com sucesso!",
+        tipo: "sucesso",
+      });
       event.target.reset();
       setForm({
         nome: "",
@@ -253,14 +290,16 @@ const CadastroEmpresa = () => {
       console.error("Erro ao cadastrar:", error);
 
       if (error.errors) {
-        // Erro de validação do Zod
         const validationErrors = {};
         error.errors.forEach((err) => {
           validationErrors[err.path[0]] = err.message;
         });
         setErrors(validationErrors);
       } else {
-        setMensagem({ texto: "❌ Erro no cadastro: " + error.message, tipo: "erro" });
+        setMensagem({
+          texto: "❌ Erro no cadastro: " + error.message,
+          tipo: "erro",
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -334,23 +373,21 @@ const CadastroEmpresa = () => {
           <SelectGroup
             label="Estado"
             name="estado"
+            options={estados}
             value={form.estado}
             onChange={handleChange}
             error={errors.estado}
-            options={estados}
             required
           />
-
           <SelectGroup
             label="Cidade"
             name="cidade"
+            options={cidades}
             value={form.cidade}
             onChange={handleChange}
             error={errors.cidade}
-            options={cidades}
             required
           />
-
           <FormGroup
             label="CEP"
             name="cep"
@@ -369,26 +406,27 @@ const CadastroEmpresa = () => {
           />
 
           <FileInputWrapper>
-            <FileLabel htmlFor="arquivo_zip">
+            <FileLabel htmlFor="arquivoZip">
               <FaFileUpload />
-              {nomeArquivoZip ? <FileName>{nomeArquivoZip}</FileName> : "Selecionar Arquivo ZIP"}
+              {nomeArquivoZip || "Selecione o arquivo ZIP"}
             </FileLabel>
             <FileInput
+              id="arquivoZip"
               type="file"
-              id="arquivo_zip"
               accept=".zip"
               onChange={handleArquivoChange}
               ref={fileInputRef}
+              required
             />
             {errors.arquivo_zip && (
-              <div style={{ color: "red", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+              <div style={{ color: "red", fontSize: "0.875rem" }}>
                 {errors.arquivo_zip}
               </div>
             )}
           </FileInputWrapper>
 
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Cadastrando..." : "Cadastrar"}
+            {isSubmitting ? "Enviando..." : "Cadastrar"}
           </Button>
         </form>
       </FormWrapper>
