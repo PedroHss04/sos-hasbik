@@ -1,459 +1,251 @@
-import React, { useState, useRef, useEffect } from "react";
-import styled from "styled-components";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import FormGroup from "../../geral-components/FormGroup";
-import SelectGroup from "./components/SelectGroup";
-import { Button } from "../../geral-components/Button";
-import { FaUserCircle, FaArrowLeft, FaFileUpload } from "react-icons/fa";
+import styled from "styled-components";
+import { FaSignOutAlt, FaClock, FaTimesCircle, FaBuilding, FaChartLine } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
-import { hashPassword } from "../../utils/passwordUtils";
-import { cadastroEmpresaSchema } from "../../utils/validationSchemas";
 
 const Container = styled.div`
-  width: 100%;
-  min-height: 100vh;
+  padding: 2rem;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  background: linear-gradient(to right, #dfe9f3, #ffffff);
-  padding: 2rem;
-`;
-
-const FormWrapper = styled.div`
-  background: #fff;
-  padding: 2rem;
-  border-radius: 16px;
-  width: 100%;
-  max-width: 400px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
 `;
 
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  width: 100%;
+  max-width: 800px;
 `;
 
-const Title = styled.h2`
-  font-size: 1.5rem;
-  font-weight: bold;
+const Title = styled.h1`
+  font-size: 1.8rem;
   color: #333;
 `;
 
-const AvatarIcon = styled(FaUserCircle)`
-  font-size: 32px;
-  color: #444;
+const WelcomeMessage = styled.div`
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 2rem;
 `;
 
-const BackButton = styled.button`
+const CompanySection = styled.section`
+  background: #f9fafb;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 800px;
+`;
+
+const SectionTitle = styled.h2`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #6b7280;
+  font-size: 1.4rem;
+  color: #111827;
+  margin-bottom: 1rem;
+`;
+
+const StatusMessage = styled.div`
+  padding: 2rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  font-size: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 600px;
+  width: 100%;
+`;
+
+const PendingMessage = styled(StatusMessage)`
+  background-color: #fefcbf;
+  color: #92400e;
+`;
+
+const RejectedMessage = styled(StatusMessage)`
+  background-color: #fdecea;
+  color: #9f1239;
+`;
+
+const StatusIcon = styled.div`
+  font-size: 2.5rem;
+`;
+
+const LogoutButton = styled.button`
+  margin-top: 2rem;
+  padding: 0.75rem 1.5rem;
+  background: #ef4444;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
-  margin-bottom: 1rem;
-
-  &:hover {
-    background: #4b5563;
-  }
-`;
-
-const FileInputWrapper = styled.div`
-  margin-bottom: 1rem;
-`;
-
-const FileLabel = styled.label`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background-color: #f3f4f6;
-  color: #4b5563;
-  padding: 0.75rem;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  border: 1px solid #d1d5db;
-  width: 100%;
-  box-sizing: border-box;
 
   &:hover {
-    background-color: #e5e7eb;
+    background: #dc2626;
   }
 `;
 
-const FileInput = styled.input`
-  display: none;
+const CadastroFuncionarioButton = styled.button`
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #1d4ed8;
+  }
 `;
 
-const FileName = styled.span`
-  font-size: 0.875rem;
-  color: #374151;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-`;
-
-const CadastroEmpresa = () => {
+const DashboardEmpresa = () => {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mensagem, setMensagem] = useState({ texto: "", tipo: "" });
-  const [errors, setErrors] = useState({});
-  const [estados, setEstados] = useState([]);
-  const [cidades, setCidades] = useState([]);
-
-  const [form, setForm] = useState({
-    nome: "",
-    cnpj: "",
-    email: "",
-    telefone: "",
-    estado: "",
-    cidade: "",
-    cep: "",
-    endereco: "",
-    senha: "",
-  });
-  const [arquivoZip, setArquivoZip] = useState(null);
-  const [nomeArquivoZip, setNomeArquivoZip] = useState("");
-  const fileInputRef = useRef(null);
-
-  // Função para formatar o CNPJ enquanto digita
-  const formatCNPJ = (value) => {
-    // Remove tudo que não é dígito
-    const numericValue = value.replace(/\D/g, '');
-    
-    // Limita a 14 caracteres (tamanho do CNPJ)
-    const limitedValue = numericValue.slice(0, 14);
-    
-    // Aplica a formatação conforme o usuário digita
-    if (limitedValue.length <= 2) {
-      return limitedValue;
-    }
-    if (limitedValue.length <= 5) {
-      return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2)}`;
-    }
-    if (limitedValue.length <= 8) {
-      return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2, 5)}.${limitedValue.slice(5)}`;
-    }
-    if (limitedValue.length <= 12) {
-      return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2, 5)}.${limitedValue.slice(5, 8)}/${limitedValue.slice(8)}`;
-    }
-    return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2, 5)}.${limitedValue.slice(5, 8)}/${limitedValue.slice(8, 12)}-${limitedValue.slice(12)}`;
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Formatação especial para o CNPJ
-    if (name === "cnpj") {
-      const formattedValue = formatCNPJ(value);
-      setForm((prev) => ({ ...prev, [name]: formattedValue }));
-    } else {
-      setForm((prev) => ({ ...prev, [name]: value }));
-    }
-    
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
-  };
+  const [user, setUser] = useState(null);
+  const [approvalStatus, setApprovalStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
-      .then((res) => {
-        const estadosOrdenados = res.data.map((estado) => estado.sigla);
-        setEstados(estadosOrdenados);
-      })
-      .catch((err) => {
-        console.error("Erro ao buscar estados:", err);
-      });
-  }, []);
+    const checkAuthAndApproval = async () => {
+      const storedUser = localStorage.getItem("user");
+      const storedUserType = localStorage.getItem("userType");
 
-  useEffect(() => {
-    if (!form.estado) {
-      setCidades([]);
-      return;
-    }
+      if (!storedUser || storedUserType !== "empresa") {
+        navigate("/login");
+        return;
+      }
 
-    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
-      .then((resEstados) => {
-        const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
-        if (estadoEncontrado) {
-          return axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`);
-        } else {
-          throw new Error("Estado não encontrado.");
-        }
-      })
-      .then((resCidades) => {
-        const listaCidades = resCidades.data.map(cidade => cidade.nome);
-        setCidades(listaCidades);
-      })
-      .catch((err) => {
-        console.error("Erro ao buscar cidades:", err);
-        setCidades([]);
-      });
-  }, [form.estado]);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
 
-  const handleArquivoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setArquivoZip(file);
-      setNomeArquivoZip(file.name);
-    } else {
-      setArquivoZip(null);
-      setNomeArquivoZip("");
-    }
+        const { data, error } = await supabase
+          .from("empresas")
+          .select("aprovacao")
+          .eq("id", parsedUser.id)
+          .single();
+
+        if (error) throw error;
+        setApprovalStatus(data?.aprovacao || "pendente");
+      } catch (error) {
+        console.error("Error:", error);
+        setApprovalStatus("erro");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuthAndApproval();
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("userType");
+    navigate("/login");
   };
 
-  useEffect(() => {
-    if (arquivoZip && !arquivoZip.name.toLowerCase().endsWith(".zip")) {
-      alert("Por favor, selecione um arquivo ZIP.");
-      setArquivoZip(null);
-      setNomeArquivoZip("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  }, [arquivoZip, fileInputRef]);
+  if (loading) {
+    return <Container>Carregando...</Container>;
+  }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setIsSubmitting(true);
-    setMensagem({ texto: "", tipo: "" });
-    setErrors({});
+  if (approvalStatus === "pendente") {
+    return (
+      <Container>
+        <PendingMessage>
+          <StatusIcon>
+            <FaClock />
+          </StatusIcon>
+          <h2>Seu cadastro está em análise</h2>
+          <p>
+            Estamos avaliando suas informações. Você receberá uma notificação
+            assim que o processo for concluído. Agradecemos sua paciência.
+          </p>
+        </PendingMessage>
+        <LogoutButton onClick={handleLogout}>
+          <FaSignOutAlt />
+          Sair
+        </LogoutButton>
+      </Container>
+    );
+  }
 
-    if (!arquivoZip) {
-      setErrors(prev => ({ ...prev, arquivo_zip: "Por favor, selecione um arquivo ZIP." }));
-      setIsSubmitting(false);
-      return;
-    }
+  if (approvalStatus === "recusada") {
+    return (
+      <Container>
+        <RejectedMessage>
+          <StatusIcon>
+            <FaTimesCircle />
+          </StatusIcon>
+          <h2>Cadastro não aprovado</h2>
+          <p>
+            Seu cadastro não foi aprovado pela nossa equipe. Entre em contato
+            com nosso suporte para mais informações.
+          </p>
+        </RejectedMessage>
+        <LogoutButton onClick={handleLogout}>
+          <FaSignOutAlt />
+          Sair
+        </LogoutButton>
+      </Container>
+    );
+  }
 
-    try {
-      // Remove formatação do CNPJ antes da validação
-      const formData = {
-        ...form,
-        cnpj: form.cnpj.replace(/\D/g, '')
-      };
-
-      const validatedData = cadastroEmpresaSchema.parse(formData);
-
-      const empresaData = {
-        ...validatedData,
-        senha_hash: hashPassword(validatedData.senha),
-        aprovacao: "pendente",
-      };
-      delete empresaData.senha;
-
-      // Define o caminho da pasta no bucket
-      const caminhoPasta = `pendente/${validatedData.cnpj}/`;
-
-      // Upload do arquivo ZIP para o bucket
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("documentos")
-        .upload(`${caminhoPasta}${arquivoZip.name}`, arquivoZip);
-
-      if (uploadError) {
-        throw new Error(`Erro ao enviar arquivo: ${uploadError.message}`);
-      }
-
-      const arquivoUrl = `${supabase.supabaseUrl}/storage/v1/object/public/documentos/${caminhoPasta}${arquivoZip.name}`;
-
-      // Salva a URL do arquivo e o caminho da pasta no objeto a ser inserido
-      empresaData.arquivo_zip_url = arquivoUrl;
-      empresaData.pasta_arquivo = caminhoPasta;
-
-      // Inserção no banco e captura do registro criado com o ID
-      const { data, error } = await supabase
-        .from("empresas")
-        .insert([empresaData])
-        .select();
-
-      if (error) throw error;
-
-      // Pega o ID da empresa cadastrada corretamente a partir do retorno (data)
-      const empresaId = data[0].id;
-
-      const tipoDocumento = "comprovante_endereco";
-
-      // Insere o documento relacionado
-      const { data: docData, error: docError } = await supabase
-        .from("documentos")
-        .insert([
-          {
-            empresa_id: empresaId,
-            tipo: tipoDocumento,
-            url: arquivoUrl,
-            status: "pendente",
-            pasta_arquivo: caminhoPasta,
-            nome_arquivo: arquivoZip.name,
-          },
-        ]);
-
-      if (docError) throw docError;
-
-      setMensagem({ texto: "✅ Cadastro realizado com sucesso!", tipo: "sucesso" });
-      event.target.reset();
-      setForm({
-        nome: "",
-        cnpj: "",
-        email: "",
-        telefone: "",
-        estado: "",
-        cidade: "",
-        cep: "",
-        endereco: "",
-        senha: "",
-      });
-      setArquivoZip(null);
-      setNomeArquivoZip("");
-    } catch (error) {
-      console.error("Erro ao cadastrar:", error);
-
-      if (error.errors) {
-        const validationErrors = {};
-        error.errors.forEach((err) => {
-          validationErrors[err.path[0]] = err.message;
-        });
-        setErrors(validationErrors);
-      } else {
-        setMensagem({ texto: "❌ Erro no cadastro: " + error.message, tipo: "erro" });
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  // Se a empresa estiver aprovada
   return (
     <Container>
-      <FormWrapper>
-        <BackButton onClick={() => navigate("/login")}>
-          <FaArrowLeft />
-          Voltar para Login
-        </BackButton>
-        <Header>
-          <Title>Cadastro Empresa</Title>
-          <AvatarIcon />
-        </Header>
-        {mensagem.texto && (
-          <div
-            style={{
-              color: mensagem.tipo === "sucesso" ? "green" : "red",
-              marginBottom: "1rem",
-            }}
-          >
-            {mensagem.texto}
-          </div>
-        )}
-        <form onSubmit={handleSubmit}>
-          <FormGroup
-            label="CNPJ"
-            name="cnpj"
-            value={form.cnpj}
-            onChange={handleChange}
-            error={errors.cnpj}
-            placeholder="00.000.000/0000-00"
-            required
-          />
-          <FormGroup
-            label="Nome"
-            name="nome"
-            value={form.nome}
-            onChange={handleChange}
-            error={errors.nome}
-            required
-          />
-          <FormGroup
-            label="Senha"
-            name="senha"
-            type="password"
-            value={form.senha}
-            onChange={handleChange}
-            error={errors.senha}
-            required
-          />
-          <FormGroup
-            label="Email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            error={errors.email}
-            required
-          />
-          <FormGroup
-            label="Telefone"
-            name="telefone"
-            value={form.telefone}
-            onChange={handleChange}
-            error={errors.telefone}
-            required
-          />
-          <SelectGroup
-            label="Estado"
-            name="estado"
-            value={form.estado}
-            onChange={handleChange}
-            error={errors.estado}
-            options={estados}
-            required
-          />
-          <SelectGroup
-            label="Cidade"
-            name="cidade"
-            value={form.cidade}
-            onChange={handleChange}
-            error={errors.cidade}
-            options={cidades}
-            required
-          />
-          <FormGroup
-            label="CEP"
-            name="cep"
-            value={form.cep}
-            onChange={handleChange}
-            error={errors.cep}
-            required
-          />
-          <FormGroup
-            label="Endereço"
-            name="endereco"
-            value={form.endereco}
-            onChange={handleChange}
-            error={errors.endereco}
-            required
-          />
+      <Header>
+        <Title>Dashboard - Empresa</Title>
+        <LogoutButton onClick={handleLogout}>
+          <FaSignOutAlt />
+          Sair
+        </LogoutButton>
+      </Header>
 
-          <FileInputWrapper>
-            <FileLabel htmlFor="arquivoZip">
-              <FaFileUpload />
-              {nomeArquivoZip || "Selecione o arquivo ZIP"}
-            </FileLabel>
-            <FileInput
-              id="arquivoZip"
-              type="file"
-              accept=".zip"
-              onChange={handleArquivoChange}
-              ref={fileInputRef}
-              required
-            />
-            {errors.arquivo_zip && (
-              <div style={{ color: "red", fontSize: "0.875rem" }}>
-                {errors.arquivo_zip}
-              </div>
-            )}
-          </FileInputWrapper>
+      <WelcomeMessage>
+        Bem-vindo(a), <strong>{user?.nome}</strong>!
+        <p>
+          Você está logado como <strong>Empresa</strong>.
+        </p>
+      </WelcomeMessage>
 
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Enviando..." : "Cadastrar"}
-          </Button>
-        </form>
-      </FormWrapper>
+      <CompanySection>
+        <SectionTitle>
+          <FaBuilding />
+          Área da Empresa
+        </SectionTitle>
+        <p>Gerencie seus serviços, colaboradores e relatórios aqui.</p>
+
+        <CadastroFuncionarioButton
+          onClick={() => navigate("/cadastro_funcionario")}
+        >
+          Cadastrar Funcionário
+        </CadastroFuncionarioButton>
+      </CompanySection>
+
+      <CompanySection>
+        <SectionTitle>
+          <FaChartLine />
+          Métricas
+        </SectionTitle>
+        <p>Visualize dados de desempenho e atendimentos.</p>
+      </CompanySection>
     </Container>
   );
 };
 
-export default CadastroEmpresa;
+export default DashboardEmpresa;
