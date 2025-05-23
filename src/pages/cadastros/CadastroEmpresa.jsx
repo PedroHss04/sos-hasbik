@@ -122,21 +122,50 @@ const CadastroEmpresa = () => {
   const [nomeArquivoZip, setNomeArquivoZip] = useState("");
   const fileInputRef = useRef(null);
 
+  // Função para formatar o CNPJ enquanto digita
+  const formatCNPJ = (value) => {
+    // Remove tudo que não é dígito
+    const numericValue = value.replace(/\D/g, '');
+    
+    // Limita a 14 caracteres (tamanho do CNPJ)
+    const limitedValue = numericValue.slice(0, 14);
+    
+    // Aplica a formatação conforme o usuário digita
+    if (limitedValue.length <= 2) {
+      return limitedValue;
+    }
+    if (limitedValue.length <= 5) {
+      return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2)}`;
+    }
+    if (limitedValue.length <= 8) {
+      return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2, 5)}.${limitedValue.slice(5)}`;
+    }
+    if (limitedValue.length <= 12) {
+      return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2, 5)}.${limitedValue.slice(5, 8)}/${limitedValue.slice(8)}`;
+    }
+    return `${limitedValue.slice(0, 2)}.${limitedValue.slice(2, 5)}.${limitedValue.slice(5, 8)}/${limitedValue.slice(8, 12)}-${limitedValue.slice(12)}`;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    
+    // Formatação especial para o CNPJ
+    if (name === "cnpj") {
+      const formattedValue = formatCNPJ(value);
+      setForm((prev) => ({ ...prev, [name]: formattedValue }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
+    
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
   useEffect(() => {
-    axios
-      .get(
-        "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
-      )
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
       .then((res) => {
-        const estadosOrdenados = res.data.map((estado) => estado.sigla); // apenas sigla
+        const estadosOrdenados = res.data.map((estado) => estado.sigla);
         setEstados(estadosOrdenados);
       })
       .catch((err) => {
@@ -150,22 +179,17 @@ const CadastroEmpresa = () => {
       return;
     }
 
-    axios
-      .get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
       .then((resEstados) => {
-        const estadoEncontrado = resEstados.data.find(
-          (e) => e.sigla === form.estado
-        );
+        const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
         if (estadoEncontrado) {
-          return axios.get(
-            `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`
-          );
+          return axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`);
         } else {
           throw new Error("Estado não encontrado.");
         }
       })
       .then((resCidades) => {
-        const listaCidades = resCidades.data.map((cidade) => cidade.nome);
+        const listaCidades = resCidades.data.map(cidade => cidade.nome);
         setCidades(listaCidades);
       })
       .catch((err) => {
@@ -203,16 +227,19 @@ const CadastroEmpresa = () => {
     setErrors({});
 
     if (!arquivoZip) {
-      setErrors((prev) => ({
-        ...prev,
-        arquivo_zip: "Por favor, selecione um arquivo ZIP.",
-      }));
+      setErrors(prev => ({ ...prev, arquivo_zip: "Por favor, selecione um arquivo ZIP." }));
       setIsSubmitting(false);
       return;
     }
 
     try {
-      const validatedData = cadastroEmpresaSchema.parse(form);
+      // Remove formatação do CNPJ antes da validação
+      const formData = {
+        ...form,
+        cnpj: form.cnpj.replace(/\D/g, '')
+      };
+
+      const validatedData = cadastroEmpresaSchema.parse(formData);
 
       const empresaData = {
         ...validatedData,
@@ -250,7 +277,7 @@ const CadastroEmpresa = () => {
       // Pega o ID da empresa cadastrada corretamente a partir do retorno (data)
       const empresaId = data[0].id;
 
-      const tipoDocumento = "comprovante_endereco"; // ou outro tipo conforme o arquivo enviado
+      const tipoDocumento = "comprovante_endereco";
 
       // Insere o documento relacionado
       const { data: docData, error: docError } = await supabase
@@ -262,16 +289,13 @@ const CadastroEmpresa = () => {
             url: arquivoUrl,
             status: "pendente",
             pasta_arquivo: caminhoPasta,
-            nome_arquivo: arquivoZip.name, // Stores just the file name
+            nome_arquivo: arquivoZip.name,
           },
         ]);
 
       if (docError) throw docError;
 
-      setMensagem({
-        texto: "✅ Cadastro realizado com sucesso!",
-        tipo: "sucesso",
-      });
+      setMensagem({ texto: "✅ Cadastro realizado com sucesso!", tipo: "sucesso" });
       event.target.reset();
       setForm({
         nome: "",
@@ -296,10 +320,7 @@ const CadastroEmpresa = () => {
         });
         setErrors(validationErrors);
       } else {
-        setMensagem({
-          texto: "❌ Erro no cadastro: " + error.message,
-          tipo: "erro",
-        });
+        setMensagem({ texto: "❌ Erro no cadastro: " + error.message, tipo: "erro" });
       }
     } finally {
       setIsSubmitting(false);
@@ -334,6 +355,7 @@ const CadastroEmpresa = () => {
             value={form.cnpj}
             onChange={handleChange}
             error={errors.cnpj}
+            placeholder="00.000.000/0000-00"
             required
           />
           <FormGroup
@@ -373,19 +395,19 @@ const CadastroEmpresa = () => {
           <SelectGroup
             label="Estado"
             name="estado"
-            options={estados}
             value={form.estado}
             onChange={handleChange}
             error={errors.estado}
+            options={estados}
             required
           />
           <SelectGroup
             label="Cidade"
             name="cidade"
-            options={cidades}
             value={form.cidade}
             onChange={handleChange}
             error={errors.cidade}
+            options={cidades}
             required
           />
           <FormGroup
