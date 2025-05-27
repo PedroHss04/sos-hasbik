@@ -104,7 +104,7 @@ export default function Login() {
         } else if (usuarioData.tipoUsuario === "cidadao") {
           navigate("/dashboard");
         } else if (usuarioData.tipoUsuario === "funcionario") {
-          navigate("/dashboard");
+          navigate("/dashboard_funcionario");
         } else {
           // Caso tipo inesperado
           setMensagem({
