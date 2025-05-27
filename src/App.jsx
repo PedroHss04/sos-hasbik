@@ -13,6 +13,7 @@ import CadastroFuncionario from "./pages/cadastros/CadastroFuncionario";
 import Dashboard from "./pages/dashboard/Dashboard";
 import DashboardEmpresa from "./pages/dashboard/DashboardEmpresa";
 import DashboardAdmin from "./pages/dashboard/DashboardAdmin";
+import DashboardFuncionario from "./pages/dashboard/DashboardFuncionario";
 
 function App() {
   return (
@@ -27,6 +28,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard_empresa" element={<DashboardEmpresa />} />
         <Route path="/dashboard_admin" element={<DashboardAdmin />} />
+        <Route path="/dashboard_funcionario" element={<DashboardFuncionario />} />
+
       </Routes>
     </Router>
   );
