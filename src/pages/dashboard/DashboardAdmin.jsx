@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabaseClient"; // Ensure this path is correct
-import { FaCheck, FaTimes, FaFileArchive } from "react-icons/fa";
-import { ImSpinner8 } from "react-icons/im"; // For loading icon
+import { supabase } from "../../lib/supabaseClient";
+import { FaCheck, FaTimes, FaFileArchive, FaSignOutAlt } from "react-icons/fa";
+import { ImSpinner8 } from "react-icons/im";
 
-// --- Styled Components (Add these if not already in your project) ---
+// --- Styled Components ---
 const Container = styled.div`
   width: 100%;
   min-height: 100vh;
@@ -18,12 +18,37 @@ const Container = styled.div`
   box-sizing: border-box;
 `;
 
+const Header = styled.div`
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+`;
+
 const Title = styled.h2`
   font-size: 2rem;
   font-weight: bold;
   color: #333;
-  margin-bottom: 2rem;
-  text-align: center;
+`;
+
+const LogoutButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: #dc2626;
+  }
 `;
 
 const Table = styled.table`
@@ -34,17 +59,17 @@ const Table = styled.table`
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   background-color: #fff;
   border-radius: 8px;
-  overflow: hidden; /* Ensures rounded corners apply to content */
+  overflow: hidden;
 `;
 
 const TableHead = styled.thead`
-  background-color: #4a5568; /* Darker gray */
+  background-color: #4a5568;
   color: white;
 `;
 
 const TableRow = styled.tr`
   &:nth-child(even) {
-    background-color: #f7fafc; /* Light gray for even rows */
+    background-color: #f7fafc;
   }
 `;
 
@@ -59,8 +84,8 @@ const TableHeader = styled.th`
 
 const TableCell = styled.td`
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #edf2f7; /* Lighter border */
-  color: #4a5568; /* Darker text */
+  border-bottom: 1px solid #edf2f7;
+  color: #4a5568;
   font-size: 0.95rem;
 `;
 
@@ -74,7 +99,7 @@ const ActionButton = styled.button`
   align-items: center;
   gap: 0.5rem;
   transition: background-color 0.2s ease, transform 0.1s ease;
-  margin-right: 0.5rem; /* Space between buttons */
+  margin-right: 0.5rem;
 
   &:disabled {
     opacity: 0.6;
@@ -87,7 +112,7 @@ const ActionButton = styled.button`
 `;
 
 const ApproveButton = styled(ActionButton)`
-  background-color: #48bb78; /* Green */
+  background-color: #48bb78;
   color: white;
 
   &:hover {
@@ -96,7 +121,7 @@ const ApproveButton = styled(ActionButton)`
 `;
 
 const RejectButton = styled(ActionButton)`
-  background-color: #ef4444; /* Red */
+  background-color: #ef4444;
   color: white;
 
   &:hover {
@@ -105,7 +130,7 @@ const RejectButton = styled(ActionButton)`
 `;
 
 const DownloadButton = styled(ActionButton)`
-  background-color: #3b82f6; /* Blue */
+  background-color: #3b82f6;
   color: white;
 
   &:hover {
@@ -125,7 +150,6 @@ const LoadingIcon = styled(ImSpinner8)`
   }
 `;
 
-// --- DashboardAdmin Component ---
 const DashboardAdmin = () => {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
@@ -260,50 +284,51 @@ const DashboardAdmin = () => {
     }
 
     try {
-      const { data, error: signedUrlError } = await supabase.storage
-        .from("documentos") // Make sure 'documentos' is your actual bucket name
-        .createSignedUrl(fullBucketPath, 3600); // 3600 seconds (1 hour) validity
+      const { data, error } = await supabase.storage
+        .from("documentos")
+        .createSignedUrl(fullBucketPath, 3600);
 
-      if (signedUrlError) {
-        // Log the full error to the console for debugging
-        console.error("Erro ao gerar URL de download:", signedUrlError);
-        setError("Erro ao gerar URL de download: " + signedUrlError.message);
+      if (error) {
+        setError("Erro ao gerar URL de download: " + error.message);
       } else {
         const link = document.createElement("a");
         link.href = data.signedUrl;
-        // Extract filename from the fullBucketPath for the download attribute
         link.download = fullBucketPath.substring(
           fullBucketPath.lastIndexOf("/") + 1
         );
-        link.target = "_blank"; // Open in new tab
+        link.target = "_blank";
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
     } catch (err) {
-      // Catch any unexpected errors during the process
       setError("Erro inesperado ao baixar arquivo: " + err.message);
-      console.error("Download Error:", err);
     } finally {
       setDownloading(null);
     }
   };
 
-  if (loading) {
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("userType");
+    navigate("/login");
+  };
+
+  if (loading)
     return <Container>Carregando empresas para aprovação...</Container>;
-  }
-
-  if (error) {
+  if (error)
     return <Container style={{ color: "red" }}>Erro: {error}</Container>;
-  }
-
-  if (!user) {
-    return <Container>Acesso não autorizado.</Container>;
-  }
+  if (!user) return <Container>Acesso não autorizado.</Container>;
 
   return (
     <Container>
-      <Title>Painel de Administração - Aprovação de Empresas</Title>
+      <Header>
+        <Title>Painel de Administração - Aprovação de Empresas</Title>
+        <LogoutButton onClick={handleLogout}>
+          <FaSignOutAlt /> Sair
+        </LogoutButton>
+      </Header>
+
       {companies.length === 0 ? (
         <p>Não há empresas aguardando aprovação no momento.</p>
       ) : (
