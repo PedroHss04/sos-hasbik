@@ -7,6 +7,10 @@ import {
   FaChartLine,
   FaClock,
   FaTimesCircle,
+  FaUsers,
+  FaChartBar,
+  FaCog,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -18,6 +22,12 @@ const Container = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  background: linear-gradient(135deg, #f6f8fc 0%, #e9f0f7 100%);
+`;
+
+const Content = styled.div`
+  width: 100%;
+  max-width: 1200px;
 `;
 
 const Header = styled.div`
@@ -25,136 +35,144 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-  width: 100%;
-  max-width: 800px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(10px);
 `;
 
 const Title = styled.h1`
-  font-size: 1.8rem;
-  color: #333;
+  font-size: 2rem;
+  color: #1a365d;
+  font-weight: 600;
 `;
 
 const LogoutButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.5rem;
   background: #ef4444;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 
   &:hover {
     background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
   }
 `;
 
 const WelcomeMessage = styled.div`
-  font-size: 1.2rem;
-  color: #666;
-  margin-bottom: 2rem;
-`;
-
-const CompanySection = styled.section`
-  background: #f9fafb;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-top: 2rem;
-  width: 100%;
-  max-width: 800px;
-`;
-
-const SectionTitle = styled.h2`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.4rem;
-  color: #111827;
-  margin-bottom: 1rem;
-`;
-
-const AnaliseMessage = styled.div`
-  padding: 1rem;
-  border-radius: 8px;
+  font-size: 1.3rem;
+  color: #4a5568;
   margin-bottom: 2rem;
   text-align: center;
-  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  gap: 1rem;
 `;
 
-const PendenteMessage = styled(AnaliseMessage)`
-  background-color: #fefcbf;
-  color: #92400e;
+const CompanyIcon = styled(FaBuilding)`
+  font-size: 2rem;
+  color: #1a365d;
 `;
 
-const RecusadaMessage = styled(AnaliseMessage)`
-  background-color: #fdecea;
-  color: #9f1239;
+const CardGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
 `;
 
-// Botão para cadastrar funcionário
-const CadastroFuncionarioButton = styled.button`
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #2563eb; /* azul */
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+const Card = styled.div`
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
 
   &:hover {
-    background-color: #1d4ed8;
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
   }
 `;
 
-// Componente Principal
+const CardTitle = styled.h3`
+  font-size: 1.3rem;
+  color: #1a365d;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+const CadastroFuncionarioButton = styled.button`
+  margin-top: 1.5rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(37, 99, 235, 0.3);
+  }
+`;
+
 const DashboardEmpresa = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [aprovacaoStatus, setAprovacaoStatus] = useState(null);
-  const [loadingApprovalStatus, setLoadingApprovalStatus] = useState(true);
+  const [empresa, setEmpresa] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Verifica autenticação e status de aprovação ao carregar
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const storedUserType = localStorage.getItem("userType");
+    const checkUserAndFetchData = async () => {
+      const storedUser = localStorage.getItem("user");
+      const storedUserType = localStorage.getItem("userType");
 
-    if (!storedUser || storedUserType !== "empresa") {
-      navigate("/login");
-      return;
-    }
+      if (!storedUser || storedUserType !== "empresa") {
+        navigate("/login");
+        return;
+      }
 
-    const parsedUser = JSON.parse(storedUser);
-    setUser(parsedUser);
+      const parsedEmpresa = JSON.parse(storedUser);
 
-    const fetchApprovalStatus = async () => {
-      setLoadingApprovalStatus(true);
       try {
         const { data, error } = await supabase
           .from("empresas")
-          .select("aprovacao")
-          .eq("id", parsedUser.id) // Assumindo que o ID da empresa está no objeto do usuário
+          .select("nome")
+          .eq("id", parsedEmpresa.id)
           .single();
 
-        if (error) {
-          console.error("Erro ao buscar status de aprovação:", error);
-          setAprovacaoStatus("erro");
-        } else if (data) {
-          setAprovacaoStatus(data.aprovacao);
-        }
+        if (error) throw error;
+        setEmpresa(data);
+      } catch (err) {
+        console.error("Erro ao buscar dados da empresa:", err);
       } finally {
-        setLoadingApprovalStatus(false);
+        setLoading(false);
       }
     };
 
-    fetchApprovalStatus();
+    checkUserAndFetchData();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -163,95 +181,46 @@ const DashboardEmpresa = () => {
     navigate("/login");
   };
 
-  if (!user) return null;
+  if (loading) return <Container>Carregando...</Container>;
+  if (!empresa) return <Container>Acesso não autorizado.</Container>;
 
-  if (loadingApprovalStatus) {
-    return <Container>Carregando status de aprovação...</Container>;
-  }
-
-  if (aprovacaoStatus === "pendente") {
-    return (
-      <Container>
-        <PendenteMessage>
-          <FaClock />
-          Sua empresa está aguardando análise. Por favor, aguarde a aprovação
-          para acessar todas as funcionalidades do dashboard.
-        </PendenteMessage>
-        <Header>
-          <Title>Dashboard - Empresa</Title>
-          <LogoutButton onClick={handleLogout}>
-            <FaSignOutAlt />
-            Sair
-          </LogoutButton>
-        </Header>
-        <WelcomeMessage>
-          Bem-vindo(a), <strong>{user.nome}</strong>!
-        </WelcomeMessage>
-      </Container>
-    );
-  }
-
-  if (aprovacaoStatus === "recusada") {
-    return (
-      <Container>
-        <RecusadaMessage>
-          <FaTimesCircle />
-          Sua empresa foi recusada. Entre em contato com o suporte para mais
-          informações.
-        </RecusadaMessage>
-        <Header>
-          <Title>Dashboard - Empresa</Title>
-          <LogoutButton onClick={handleLogout}>
-            <FaSignOutAlt />
-            Sair
-          </LogoutButton>
-        </Header>
-        <WelcomeMessage>
-          Bem-vindo(a), <strong>{user.nome}</strong>!
-        </WelcomeMessage>
-      </Container>
-    );
-  }
-
-  // Se o status não for pendente nem recusado (assumindo que "aprovada" ou algum outro valor indica acesso)
   return (
     <Container>
-      <Header>
-        <Title>Dashboard - Empresa</Title>
-        <LogoutButton onClick={handleLogout}>
-          <FaSignOutAlt />
-          Sair
-        </LogoutButton>
-      </Header>
+      <Content>
+        <Header>
+          <Title>Dashboard da Empresa</Title>
+          <LogoutButton onClick={handleLogout}>
+            <FaSignOutAlt /> Sair
+          </LogoutButton>
+        </Header>
 
-      <WelcomeMessage>
-        Bem-vindo(a), <strong>{user.nome}</strong>!
-        <p>
-          Você está logado como <strong>Empresa</strong>.
-        </p>
-      </WelcomeMessage>
+        <WelcomeMessage>
+          <CompanyIcon />
+          <div>
+            <h2>Bem-vindo(a), {empresa.nome}</h2>
+          </div>
+        </WelcomeMessage>
 
-      <CompanySection>
-        <SectionTitle>
-          <FaBuilding />
-          Área da Empresa
-        </SectionTitle>
-        <p>Gerencie seus serviços, colaboradores e relatórios aqui.</p>
+        <CardGrid>
+          <Card>
+            <CardTitle><FaExclamationTriangle /> Acessar Ocorrências</CardTitle>
+            <p>Clique aqui para acessar as ocorrências de usuários</p>
+            <CadastroFuncionarioButton onClick={() => navigate("#")}>
+              <FaExclamationTriangle /> Acessar Ocorrências
+            </CadastroFuncionarioButton>
+          </Card>
 
-        <CadastroFuncionarioButton
-          onClick={() => navigate("/cadastro_funcionario")}
-        >
-          Cadastrar Funcionário
-        </CadastroFuncionarioButton>
-      </CompanySection>
+          <Card>
+            <CardTitle><FaChartBar /> Relatórios</CardTitle>
+            <p>Acesse relatórios detalhados e métricas de desempenho.</p>
+          </Card>
 
-      <CompanySection>
-        <SectionTitle>
-          <FaChartLine />
-          Métricas
-        </SectionTitle>
-        <p>Visualize dados de desempenho e atendimentos.</p>
-      </CompanySection>
+          <Card>
+            <CardTitle><FaCog /> Configurações</CardTitle>
+            <p>Configure as preferências da sua empresa.</p>
+          </Card>
+        </CardGrid>
+      </Content>
     </Container>
   );
 };
