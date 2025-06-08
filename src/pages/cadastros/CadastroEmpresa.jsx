@@ -82,12 +82,28 @@ const CadastroEmpresa = () => {
     cidade: "",
     cep: "",
     endereco: "",
-    senha: ""
+    senha: "",
   });
+
+  // Função para aplicar máscara no CNPJ enquanto digita
+  const mascaraCNPJ = (value) => {
+    let v = value.replace(/\D/g, "");
+    v = v.slice(0, 14); // máximo 14 dígitos numéricos
+
+    v = v.replace(/^(\d{2})(\d)/, "$1.$2");
+    v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+    v = v.replace(/\.(\d{3})(\d)/, ".$1/$2");
+    v = v.replace(/(\d{4})(\d)/, "$1-$2");
+
+    return v;
+  };
 
   // Buscar estados do Brasil (IBGE)
   useEffect(() => {
-    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
+    axios
+      .get(
+        "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
+      )
       .then((res) => {
         const estadosOrdenados = res.data.map((estado) => estado.sigla);
         setEstados(estadosOrdenados);
@@ -104,17 +120,22 @@ const CadastroEmpresa = () => {
       return;
     }
 
-    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
+    axios
+      .get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
       .then((resEstados) => {
-        const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
+        const estadoEncontrado = resEstados.data.find(
+          (e) => e.sigla === form.estado
+        );
         if (estadoEncontrado) {
-          return axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`);
+          return axios.get(
+            `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`
+          );
         } else {
           throw new Error("Estado não encontrado.");
         }
       })
       .then((resCidades) => {
-        const listaCidades = resCidades.data.map(cidade => cidade.nome);
+        const listaCidades = resCidades.data.map((cidade) => cidade.nome);
         setCidades(listaCidades);
       })
       .catch((err) => {
@@ -125,9 +146,16 @@ const CadastroEmpresa = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+
+    if (name === "cnpj") {
+      const cnpjFormatado = mascaraCNPJ(value);
+      setForm((prev) => ({ ...prev, cnpj: cnpjFormatado }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
+
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
 
@@ -138,23 +166,32 @@ const CadastroEmpresa = () => {
     setErrors({});
 
     try {
-      const validatedData = cadastroEmpresaSchema.parse(form);
+      // Remove máscara do CNPJ (deixa só números)
+      const cnpjNumeros = form.cnpj.replace(/\D/g, "");
+
+      // Cria um objeto com cnpj limpo para validação
+      const formParaValidar = { ...form, cnpj: cnpjNumeros };
+
+      const validatedData = cadastroEmpresaSchema.parse(formParaValidar);
 
       const empresaData = {
         ...validatedData,
         senha_hash: hashPassword(validatedData.senha),
-        aprovacao: "pendente"
+        aprovacao: "pendente",
       };
       delete empresaData.senha;
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("empresas")
         .insert([empresaData])
         .select();
 
       if (error) throw error;
 
-      setMensagem({ texto: "✅ Cadastro realizado com sucesso! Aguarde a aprovação.", tipo: "sucesso" });
+      setMensagem({
+        texto: "✅ Cadastro realizado com sucesso! Aguarde a aprovação.",
+        tipo: "sucesso",
+      });
       event.target.reset();
       setForm({
         nome: "",
@@ -165,7 +202,7 @@ const CadastroEmpresa = () => {
         cidade: "",
         cep: "",
         endereco: "",
-        senha: ""
+        senha: "",
       });
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
@@ -177,7 +214,10 @@ const CadastroEmpresa = () => {
         });
         setErrors(validationErrors);
       } else {
-        setMensagem({ texto: "❌ Erro no cadastro: " + error.message, tipo: "erro" });
+        setMensagem({
+          texto: "❌ Erro no cadastro: " + error.message,
+          tipo: "erro",
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -196,10 +236,12 @@ const CadastroEmpresa = () => {
           <CompanyIcon />
         </Header>
         {mensagem.texto && (
-          <div style={{ 
-            color: mensagem.tipo === "sucesso" ? "green" : "red",
-            marginBottom: "1rem"
-          }}>
+          <div
+            style={{
+              color: mensagem.tipo === "sucesso" ? "green" : "red",
+              marginBottom: "1rem",
+            }}
+          >
             {mensagem.texto}
           </div>
         )}
