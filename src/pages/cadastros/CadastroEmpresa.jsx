@@ -1,251 +1,297 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import { FaSignOutAlt, FaClock, FaTimesCircle, FaBuilding, FaChartLine } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import FormGroup from "../../geral-components/FormGroup";
+import SelectGroup from "./components/SelectGroup";
+import { Button } from "../../geral-components/Button";
+import { FaBuilding, FaArrowLeft } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
+import { hashPassword } from "../../utils/passwordUtils";
+import { cadastroEmpresaSchema } from "../../utils/validationSchemas";
 
 const Container = styled.div`
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
   min-height: 100vh;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(to right, #dfe9f3, #ffffff);
+  padding: 2rem;
+`;
+
+const FormWrapper = styled.div`
+  background: #fff;
+  padding: 2rem;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 `;
 
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  width: 100%;
-  max-width: 800px;
+  margin-bottom: 1.5rem;
 `;
 
-const Title = styled.h1`
-  font-size: 1.8rem;
+const Title = styled.h2`
+  font-size: 1.5rem;
+  font-weight: bold;
   color: #333;
 `;
 
-const WelcomeMessage = styled.div`
-  font-size: 1.2rem;
-  color: #666;
-  margin-bottom: 2rem;
+const CompanyIcon = styled(FaBuilding)`
+  font-size: 32px;
+  color: #444;
 `;
 
-const CompanySection = styled.section`
-  background: #f9fafb;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-top: 2rem;
-  width: 100%;
-  max-width: 800px;
-`;
-
-const SectionTitle = styled.h2`
+const BackButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1.4rem;
-  color: #111827;
+  padding: 0.5rem 1rem;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
   margin-bottom: 1rem;
-`;
-
-const StatusMessage = styled.div`
-  padding: 2rem;
-  border-radius: 8px;
-  margin: 1rem 0;
-  font-size: 1.2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  max-width: 600px;
-  width: 100%;
-`;
-
-const PendingMessage = styled(StatusMessage)`
-  background-color: #fefcbf;
-  color: #92400e;
-`;
-
-const RejectedMessage = styled(StatusMessage)`
-  background-color: #fdecea;
-  color: #9f1239;
-`;
-
-const StatusIcon = styled.div`
-  font-size: 2.5rem;
-`;
-
-const LogoutButton = styled.button`
-  margin-top: 2rem;
-  padding: 0.75rem 1.5rem;
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 
   &:hover {
-    background: #dc2626;
+    background: #4b5563;
   }
 `;
 
-const CadastroFuncionarioButton = styled.button`
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
-  background-color: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-
-  &:hover {
-    background-color: #1d4ed8;
-  }
-`;
-
-const DashboardEmpresa = () => {
+const CadastroEmpresa = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [approvalStatus, setApprovalStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mensagem, setMensagem] = useState({ texto: "", tipo: "" });
+  const [errors, setErrors] = useState({});
+  const [estados, setEstados] = useState([]);
+  const [cidades, setCidades] = useState([]);
 
+  const [form, setForm] = useState({
+    nome: "",
+    cnpj: "",
+    email: "",
+    telefone: "",
+    estado: "",
+    cidade: "",
+    cep: "",
+    endereco: "",
+    senha: ""
+  });
+
+  // Buscar estados do Brasil (IBGE)
   useEffect(() => {
-    const checkAuthAndApproval = async () => {
-      const storedUser = localStorage.getItem("user");
-      const storedUserType = localStorage.getItem("userType");
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
+      .then((res) => {
+        const estadosOrdenados = res.data.map((estado) => estado.sigla);
+        setEstados(estadosOrdenados);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar estados:", err);
+      });
+  }, []);
 
-      if (!storedUser || storedUserType !== "empresa") {
-        navigate("/login");
-        return;
-      }
+  // Buscar cidades com base no estado selecionado
+  useEffect(() => {
+    if (!form.estado) {
+      setCidades([]);
+      return;
+    }
 
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
+    axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
+      .then((resEstados) => {
+        const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
+        if (estadoEncontrado) {
+          return axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoEncontrado.id}/municipios`);
+        } else {
+          throw new Error("Estado não encontrado.");
+        }
+      })
+      .then((resCidades) => {
+        const listaCidades = resCidades.data.map(cidade => cidade.nome);
+        setCidades(listaCidades);
+      })
+      .catch((err) => {
+        console.error("Erro ao buscar cidades:", err);
+        setCidades([]);
+      });
+  }, [form.estado]);
 
-        const { data, error } = await supabase
-          .from("empresas")
-          .select("aprovacao")
-          .eq("id", parsedUser.id)
-          .single();
-
-        if (error) throw error;
-        setApprovalStatus(data?.aprovacao || "pendente");
-      } catch (error) {
-        console.error("Error:", error);
-        setApprovalStatus("erro");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuthAndApproval();
-  }, [navigate]);
-
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("userType");
-    navigate("/login");
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
   };
 
-  if (loading) {
-    return <Container>Carregando...</Container>;
-  }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setMensagem({ texto: "", tipo: "" });
+    setErrors({});
 
-  if (approvalStatus === "pendente") {
-    return (
-      <Container>
-        <PendingMessage>
-          <StatusIcon>
-            <FaClock />
-          </StatusIcon>
-          <h2>Seu cadastro está em análise</h2>
-          <p>
-            Estamos avaliando suas informações. Você receberá uma notificação
-            assim que o processo for concluído. Agradecemos sua paciência.
-          </p>
-        </PendingMessage>
-        <LogoutButton onClick={handleLogout}>
-          <FaSignOutAlt />
-          Sair
-        </LogoutButton>
-      </Container>
-    );
-  }
+    try {
+      const validatedData = cadastroEmpresaSchema.parse(form);
 
-  if (approvalStatus === "recusada") {
-    return (
-      <Container>
-        <RejectedMessage>
-          <StatusIcon>
-            <FaTimesCircle />
-          </StatusIcon>
-          <h2>Cadastro não aprovado</h2>
-          <p>
-            Seu cadastro não foi aprovado pela nossa equipe. Entre em contato
-            com nosso suporte para mais informações.
-          </p>
-        </RejectedMessage>
-        <LogoutButton onClick={handleLogout}>
-          <FaSignOutAlt />
-          Sair
-        </LogoutButton>
-      </Container>
-    );
-  }
+      const empresaData = {
+        ...validatedData,
+        senha_hash: hashPassword(validatedData.senha),
+        aprovacao: "pendente"
+      };
+      delete empresaData.senha;
 
-  // Se a empresa estiver aprovada
+      const { data, error } = await supabase
+        .from("empresas")
+        .insert([empresaData])
+        .select();
+
+      if (error) throw error;
+
+      setMensagem({ texto: "✅ Cadastro realizado com sucesso! Aguarde a aprovação.", tipo: "sucesso" });
+      event.target.reset();
+      setForm({
+        nome: "",
+        cnpj: "",
+        email: "",
+        telefone: "",
+        estado: "",
+        cidade: "",
+        cep: "",
+        endereco: "",
+        senha: ""
+      });
+    } catch (error) {
+      console.error("Erro ao cadastrar:", error);
+
+      if (error.errors) {
+        const validationErrors = {};
+        error.errors.forEach((err) => {
+          validationErrors[err.path[0]] = err.message;
+        });
+        setErrors(validationErrors);
+      } else {
+        setMensagem({ texto: "❌ Erro no cadastro: " + error.message, tipo: "erro" });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Container>
-      <Header>
-        <Title>Dashboard - Empresa</Title>
-        <LogoutButton onClick={handleLogout}>
-          <FaSignOutAlt />
-          Sair
-        </LogoutButton>
-      </Header>
+      <FormWrapper>
+        <BackButton onClick={() => navigate("/login")}>
+          <FaArrowLeft />
+          Voltar para Login
+        </BackButton>
+        <Header>
+          <Title>Cadastro de Empresa</Title>
+          <CompanyIcon />
+        </Header>
+        {mensagem.texto && (
+          <div style={{ 
+            color: mensagem.tipo === "sucesso" ? "green" : "red",
+            marginBottom: "1rem"
+          }}>
+            {mensagem.texto}
+          </div>
+        )}
+        <form onSubmit={handleSubmit}>
+          <FormGroup
+            label="Nome da Empresa"
+            name="nome"
+            value={form.nome}
+            onChange={handleChange}
+            error={errors.nome}
+            required
+          />
+          <FormGroup
+            label="CNPJ"
+            name="cnpj"
+            value={form.cnpj}
+            onChange={handleChange}
+            error={errors.cnpj}
+            required
+          />
+          <FormGroup
+            label="Email"
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={handleChange}
+            error={errors.email}
+            required
+          />
+          <FormGroup
+            label="Telefone"
+            name="telefone"
+            value={form.telefone}
+            onChange={handleChange}
+            error={errors.telefone}
+            required
+          />
+          <FormGroup
+            label="Senha"
+            name="senha"
+            type="password"
+            value={form.senha}
+            onChange={handleChange}
+            error={errors.senha}
+            required
+          />
 
-      <WelcomeMessage>
-        Bem-vindo(a), <strong>{user?.nome}</strong>!
-        <p>
-          Você está logado como <strong>Empresa</strong>.
-        </p>
-      </WelcomeMessage>
+          <SelectGroup
+            label="Estado"
+            name="estado"
+            value={form.estado}
+            onChange={handleChange}
+            error={errors.estado}
+            options={estados}
+            required
+          />
 
-      <CompanySection>
-        <SectionTitle>
-          <FaBuilding />
-          Área da Empresa
-        </SectionTitle>
-        <p>Gerencie seus serviços, colaboradores e relatórios aqui.</p>
+          <SelectGroup
+            label="Cidade"
+            name="cidade"
+            value={form.cidade}
+            onChange={handleChange}
+            error={errors.cidade}
+            options={cidades}
+            required
+            disabled={!form.estado}
+          />
 
-        <CadastroFuncionarioButton
-          onClick={() => navigate("/cadastro_funcionario")}
-        >
-          Cadastrar Funcionário
-        </CadastroFuncionarioButton>
-      </CompanySection>
+          <FormGroup
+            label="CEP"
+            name="cep"
+            value={form.cep}
+            onChange={handleChange}
+            error={errors.cep}
+            required
+          />
+          <FormGroup
+            label="Endereço"
+            name="endereco"
+            value={form.endereco}
+            onChange={handleChange}
+            error={errors.endereco}
+            required
+          />
 
-      <CompanySection>
-        <SectionTitle>
-          <FaChartLine />
-          Métricas
-        </SectionTitle>
-        <p>Visualize dados de desempenho e atendimentos.</p>
-      </CompanySection>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Cadastrando..." : "Cadastrar Empresa"}
+          </Button>
+        </form>
+      </FormWrapper>
     </Container>
   );
 };
 
-export default DashboardEmpresa;
+export default CadastroEmpresa;

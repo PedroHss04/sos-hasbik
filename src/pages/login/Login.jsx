@@ -1,6 +1,6 @@
 import { React, useState } from "react";
 import styled from "styled-components";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import FormGroup from "../../geral-components/FormGroup";
 import { Button } from "../../geral-components/Button";
 import { Mensagem } from "./components/Mensagem";
@@ -45,7 +45,7 @@ const LinkContainer = styled.div`
   text-align: center;
 `;
 
-const Link = styled.a`
+const StyledLink = styled(Link)`
   color: #4f46e5;
   text-decoration: none;
   font-size: 0.9rem;
@@ -220,9 +220,9 @@ export default function Login() {
         </form>
 
         <LinkContainer>
-          <Link href="/cadastro_cidadao">Cadastrar como Cidadão</Link>
+          <StyledLink to="/cadastro_cidadao">Cadastrar como Cidadão</StyledLink>
           {" | "}
-          <Link href="/cadastro_empresa">Cadastrar como Empresa</Link>
+          <StyledLink to="/cadastro_empresa">Cadastrar como Empresa</StyledLink>
         </LinkContainer>
       </FormWrapper>
     </Container>
