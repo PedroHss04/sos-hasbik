@@ -4,17 +4,13 @@ import styled from "styled-components";
 import {
   FaSignOutAlt,
   FaBuilding,
-  FaChartLine,
-  FaClock,
-  FaTimesCircle,
-  FaUsers,
-  FaChartBar,
-  FaCog,
   FaExclamationTriangle,
+  FaTimesCircle,
+  FaClock,
+  FaArrowLeft,
 } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
-// Estilos (reutilizáveis ou adaptados)
 const Container = styled.div`
   padding: 2rem;
   display: flex;
@@ -27,7 +23,7 @@ const Container = styled.div`
 
 const Content = styled.div`
   width: 100%;
-  max-width: 1200px;
+  max-width: 800px;
 `;
 
 const Header = styled.div`
@@ -39,7 +35,6 @@ const Header = styled.div`
   background: rgba(255, 255, 255, 0.9);
   border-radius: 16px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(10px);
 `;
 
 const Title = styled.h1`
@@ -60,13 +55,21 @@ const LogoutButton = styled.button`
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 
   &:hover {
     background: #dc2626;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
   }
+`;
+
+const Message = styled.div`
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2rem;
+  border-radius: 16px;
+  text-align: center;
+  color: #1e293b;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
 `;
 
 const WelcomeMessage = styled.div`
@@ -77,23 +80,10 @@ const WelcomeMessage = styled.div`
   background: rgba(255, 255, 255, 0.9);
   padding: 1.5rem;
   border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   gap: 1rem;
-`;
-
-const CompanyIcon = styled(FaBuilding)`
-  font-size: 2rem;
-  color: #1a365d;
-`;
-
-const CardGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  justify-content: center;
 `;
 
 const Card = styled.div`
@@ -101,41 +91,51 @@ const Card = styled.div`
   padding: 1.5rem;
   border-radius: 16px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
-  }
+  text-align: center;
 `;
 
-const CardTitle = styled.h3`
-  font-size: 1.3rem;
-  color: #1a365d;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-`;
-
-const CadastroFuncionarioButton = styled.button`
-  margin-top: 1.5rem;
-  padding: 1rem 2rem;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+const OcorrenciasButton = styled.button`
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: #2563eb;
   color: white;
   border: none;
   border-radius: 12px;
   font-size: 1.1rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  transition: background 0.3s ease, transform 0.2s ease;
 
   &:hover {
+    background: #1e40af;
     transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(37, 99, 235, 0.3);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+`;
+
+const BackButton = styled.button`
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  cursor: pointer;
+
+  &:hover {
+    background: #4b5563;
   }
 `;
 
@@ -159,7 +159,7 @@ const DashboardEmpresa = () => {
       try {
         const { data, error } = await supabase
           .from("empresas")
-          .select("nome")
+          .select("nome, aprovacao")
           .eq("id", parsedEmpresa.id)
           .single();
 
@@ -181,8 +181,52 @@ const DashboardEmpresa = () => {
     navigate("/login");
   };
 
+  const handleBack = () => {
+    navigate("/");
+  };
+
   if (loading) return <Container>Carregando...</Container>;
   if (!empresa) return <Container>Acesso não autorizado.</Container>;
+
+  if (empresa.aprovacao === "pendente") {
+    return (
+      <Container>
+        <Message>
+          <FaClock
+            size={24}
+            style={{ color: "#fbbf24", marginBottom: "0.5rem" }}
+          />
+          <p>
+            Sua solicitação de cadastro ainda está sendo analisada. Por favor,
+            aguarde a aprovação.
+          </p>
+        </Message>
+        <BackButton onClick={handleBack}>
+          <FaArrowLeft /> Voltar para o Início
+        </BackButton>
+      </Container>
+    );
+  }
+
+  if (empresa.aprovacao === "recusada") {
+    return (
+      <Container>
+        <Message>
+          <FaTimesCircle
+            size={24}
+            style={{ color: "#ef4444", marginBottom: "0.5rem" }}
+          />
+          <p>
+            Seu cadastro foi recusado. Entre em contato com o suporte para mais
+            informações.
+          </p>
+        </Message>
+        <BackButton onClick={handleBack}>
+          <FaArrowLeft /> Voltar para o Início
+        </BackButton>
+      </Container>
+    );
+  }
 
   return (
     <Container>
@@ -195,31 +239,15 @@ const DashboardEmpresa = () => {
         </Header>
 
         <WelcomeMessage>
-          <CompanyIcon />
-          <div>
-            <h2>Bem-vindo(a), {empresa.nome}</h2>
-          </div>
+          <FaBuilding size={24} />
+          <h2>Bem-vindo(a), {empresa.nome}</h2>
         </WelcomeMessage>
 
-        <CardGrid>
-          <Card>
-            <CardTitle><FaExclamationTriangle /> Acessar Ocorrências</CardTitle>
-            <p>Clique aqui para acessar as ocorrências de usuários</p>
-            <CadastroFuncionarioButton onClick={() => navigate("#")}>
-              <FaExclamationTriangle /> Acessar Ocorrências
-            </CadastroFuncionarioButton>
-          </Card>
-
-          <Card>
-            <CardTitle><FaChartBar /> Relatórios</CardTitle>
-            <p>Acesse relatórios detalhados e métricas de desempenho.</p>
-          </Card>
-
-          <Card>
-            <CardTitle><FaCog /> Configurações</CardTitle>
-            <p>Configure as preferências da sua empresa.</p>
-          </Card>
-        </CardGrid>
+        <Card>
+          <OcorrenciasButton onClick={() => navigate("/ocorrencias")}>
+            <FaExclamationTriangle /> Acessar Ocorrências
+          </OcorrenciasButton>
+        </Card>
       </Content>
     </Container>
   );
