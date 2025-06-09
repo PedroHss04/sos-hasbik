@@ -156,7 +156,8 @@ const DashboardAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
-  const [downloading, setDownloading] = useState(null); // Tracks which company's file is being downloaded
+  const [downloading, setDownloading] = useState(null);
+  const [processing, setProcessing] = useState(null); // Para controlar botões durante processamento
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -173,22 +174,10 @@ const DashboardAdmin = () => {
       setError(null);
 
       try {
-        // Fetch companies AND their associated documents (specifically the ZIP file)
+        // Buscar empresas pendentes com o campo arquivo_zip_url
         const { data: empresasPendentes, error: empresasError } = await supabase
           .from("empresas")
-          .select(
-            `
-            id,
-            nome,
-            cnpj,
-            documentos (
-              url,
-              pasta_arquivo,
-              nome_arquivo,
-              tipo
-            )
-          `
-          )
+          .select("id, nome, cnpj, arquivo_zip_url")
           .eq("aprovacao", "pendente");
 
         if (empresasError) {
@@ -197,26 +186,7 @@ const DashboardAdmin = () => {
           );
           console.error("Supabase fetch error:", empresasError);
         } else {
-          // Process the fetched data to get the specific document path for the ZIP file
-          const companiesWithDocPaths = empresasPendentes.map((company) => {
-            // Assuming 'comprovante_endereco' or similar is the type for the ZIP file
-            const zipDoc = company.documentos.find(
-              (doc) => doc.tipo === "comprovante_endereco" // Or whatever 'tipo' you assign to the ZIP
-            );
-
-            let fullBucketPath = null;
-            if (zipDoc && zipDoc.pasta_arquivo && zipDoc.nome_arquivo) {
-              // Construct the exact path within the bucket
-              fullBucketPath = `${zipDoc.pasta_arquivo}${zipDoc.nome_arquivo}`;
-            }
-
-            return {
-              ...company,
-              full_bucket_path: fullBucketPath, // Add this new property
-              documentos: undefined, // Clear nested documents if not needed in UI directly
-            };
-          });
-          setCompanies(companiesWithDocPaths || []);
+          setCompanies(empresasPendentes || []);
         }
       } catch (err) {
         setError("Erro inesperado ao carregar dados.");
@@ -229,10 +199,61 @@ const DashboardAdmin = () => {
     fetchAdminData();
   }, [navigate]);
 
-  const handleApprove = async (companyId) => {
-    setLoading(true);
-    setError(null);
+  // Função para mover arquivo no Supabase Storage
+  const moverArquivo = async (caminhoAtual, novaPasta, empresaId) => {
+    if (!caminhoAtual) return null;
+
     try {
+      // Extrair o nome do arquivo do caminho atual
+      const nomeArquivo = caminhoAtual.split("/").pop();
+      const novoCaminho = `${novaPasta}/${nomeArquivo}`;
+
+      // Copiar arquivo para nova pasta
+      const { data: copyData, error: copyError } = await supabase.storage
+        .from("documentos")
+        .copy(caminhoAtual, novoCaminho);
+
+      if (copyError) throw copyError;
+
+      // Remover arquivo da pasta antiga
+      const { error: removeError } = await supabase.storage
+        .from("documentos")
+        .remove([caminhoAtual]);
+
+      if (removeError) {
+        console.warn("Erro ao remover arquivo da pasta antiga:", removeError);
+        // Não falha a operação se não conseguir remover o arquivo antigo
+      }
+
+      // Atualizar registro da empresa com o novo caminho
+      const { error: updateError } = await supabase
+        .from("empresas")
+        .update({ arquivo_zip_url: novoCaminho })
+        .eq("id", empresaId);
+
+      if (updateError) throw updateError;
+
+      return novoCaminho;
+    } catch (error) {
+      console.error("Erro ao mover arquivo:", error);
+      throw error;
+    }
+  };
+
+  const handleApprove = async (companyId) => {
+    setProcessing(companyId);
+    setError(null);
+
+    try {
+      // Encontrar a empresa para obter o caminho do arquivo
+      const empresa = companies.find((c) => c.id === companyId);
+
+      // Mover arquivo para pasta 'aprovadas' se existir
+      if (empresa && empresa.arquivo_zip_url) {
+        await moverArquivo(empresa.arquivo_zip_url, "aprovadas", companyId);
+      }
+
+      // Atualizar status da empresa para aprovada
       const { error: updateError } = await supabase
         .from("empresas")
         .update({ aprovacao: "aprovada" })
@@ -241,20 +262,31 @@ const DashboardAdmin = () => {
       if (updateError) {
         setError("Erro ao aprovar empresa: " + updateError.message);
       } else {
+        // Remover empresa da lista de pendentes
         setCompanies(companies.filter((company) => company.id !== companyId));
       }
     } catch (err) {
-      setError("Erro inesperado ao aprovar empresa.");
+      setError("Erro inesperado ao aprovar empresa: " + err.message);
       console.error("Approve Error:", err);
     } finally {
-      setLoading(false);
+      setProcessing(null);
     }
   };
 
   const handleReject = async (companyId) => {
-    setLoading(true);
+    setProcessing(companyId);
     setError(null);
+
     try {
+      // Encontrar a empresa para obter o caminho do arquivo
+      const empresa = companies.find((c) => c.id === companyId);
+
+      // Mover arquivo para pasta 'recusadas' se existir
+      if (empresa && empresa.arquivo_zip_url) {
+        await moverArquivo(empresa.arquivo_zip_url, "recusadas", companyId);
+      }
+
+      // Atualizar status da empresa para recusada
       const { error: updateError } = await supabase
         .from("empresas")
         .update({ aprovacao: "recusada" })
@@ -263,21 +295,22 @@ const DashboardAdmin = () => {
       if (updateError) {
         setError("Erro ao recusar empresa: " + updateError.message);
       } else {
+        // Remover empresa da lista de pendentes
         setCompanies(companies.filter((company) => company.id !== companyId));
       }
     } catch (err) {
-      setError("Erro inesperado ao recusar empresa.");
+      setError("Erro inesperado ao recusar empresa: " + err.message);
       console.error("Reject Error:", err);
     } finally {
-      setLoading(false);
+      setProcessing(null);
     }
   };
 
-  const handleDownload = async (fullBucketPath, companyId) => {
+  const handleDownload = async (arquivoZipUrl, companyId) => {
     setDownloading(companyId);
     setError(null);
 
-    if (!fullBucketPath) {
+    if (!arquivoZipUrl) {
       setError("Caminho do documento não disponível.");
       setDownloading(null);
       return;
@@ -286,15 +319,15 @@ const DashboardAdmin = () => {
     try {
       const { data, error } = await supabase.storage
         .from("documentos")
-        .createSignedUrl(fullBucketPath, 3600);
+        .createSignedUrl(arquivoZipUrl, 3600);
 
       if (error) {
         setError("Erro ao gerar URL de download: " + error.message);
       } else {
         const link = document.createElement("a");
         link.href = data.signedUrl;
-        link.download = fullBucketPath.substring(
-          fullBucketPath.lastIndexOf("/") + 1
+        link.download = arquivoZipUrl.substring(
+          arquivoZipUrl.lastIndexOf("/") + 1
         );
         link.target = "_blank";
         document.body.appendChild(link);
@@ -347,10 +380,10 @@ const DashboardAdmin = () => {
                 <TableCell>{company.nome}</TableCell>
                 <TableCell>{company.cnpj}</TableCell>
                 <TableCell>
-                  {company.full_bucket_path ? (
+                  {company.arquivo_zip_url ? (
                     <DownloadButton
                       onClick={() =>
-                        handleDownload(company.full_bucket_path, company.id)
+                        handleDownload(company.arquivo_zip_url, company.id)
                       }
                       disabled={downloading === company.id}
                     >
@@ -369,11 +402,33 @@ const DashboardAdmin = () => {
                   )}
                 </TableCell>
                 <TableCell>
-                  <ApproveButton onClick={() => handleApprove(company.id)}>
-                    <FaCheck /> Aprovar
+                  <ApproveButton
+                    onClick={() => handleApprove(company.id)}
+                    disabled={processing === company.id}
+                  >
+                    {processing === company.id ? (
+                      <>
+                        <LoadingIcon /> Processando...
+                      </>
+                    ) : (
+                      <>
+                        <FaCheck /> Aprovar
+                      </>
+                    )}
                   </ApproveButton>
-                  <RejectButton onClick={() => handleReject(company.id)}>
-                    <FaTimes /> Recusar
+                  <RejectButton
+                    onClick={() => handleReject(company.id)}
+                    disabled={processing === company.id}
+                  >
+                    {processing === company.id ? (
+                      <>
+                        <LoadingIcon /> Processando...
+                      </>
+                    ) : (
+                      <>
+                        <FaTimes /> Recusar
+                      </>
+                    )}
                   </RejectButton>
                 </TableCell>
               </TableRow>
