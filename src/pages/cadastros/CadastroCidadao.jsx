@@ -65,6 +65,31 @@ const BackButton = styled.button`
   }
 `;
 
+// Funções para formatação de máscaras
+const formatarCPF = (valor) => {
+  return valor
+    .replace(/\D/g, "")
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+};
+
+const formatarTelefone = (valor) => {
+  const numeros = valor.replace(/\D/g, "").slice(0, 11);
+  if (numeros.length <= 10) {
+    return numeros.replace(/^(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
+  }
+  return numeros.replace(/^(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3");
+};
+
+const formatarCEP = (valor) => {
+  return valor
+    .replace(/\D/g, "")
+    .slice(0, 8)
+    .replace(/^(\d{5})(\d)/, "$1-$2");
+};
+
 const CadastroCidadao = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,7 +112,22 @@ const CadastroCidadao = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    let novoValor = value;
+
+    if (name === "cpf") {
+      novoValor = formatarCPF(value);
+    }
+
+    if (name === "telefone") {
+      novoValor = formatarTelefone(value);
+    }
+
+    if (name === "cep") {
+      novoValor = formatarCEP(value);
+    }
+
+    setForm(prev => ({ ...prev, [name]: novoValor }));
+
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
@@ -97,14 +137,13 @@ const CadastroCidadao = () => {
   useEffect(() => {
     axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
       .then((res) => {
-        const estadosOrdenados = res.data.map((estado) => estado.sigla); // apenas sigla
+        const estadosOrdenados = res.data.map((estado) => estado.sigla);
         setEstados(estadosOrdenados);
       })
       .catch((err) => {
         console.error("Erro ao buscar estados:", err);
       });
   }, []);
-  
 
   // Buscar cidades com base no estado selecionado
   useEffect(() => {
@@ -112,8 +151,7 @@ const CadastroCidadao = () => {
       setCidades([]);
       return;
     }
-  
-    // Buscar o ID do estado a partir da sigla
+
     axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
       .then((resEstados) => {
         const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
@@ -132,7 +170,6 @@ const CadastroCidadao = () => {
         setCidades([]);
       });
   }, [form.estado]);
-  
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -141,7 +178,15 @@ const CadastroCidadao = () => {
     setErrors({});
 
     try {
-      const validatedData = cadastroCidadaoSchema.parse(form);
+      // Limpar máscara antes da validação
+      const formSemMascara = {
+        ...form,
+        cpf: form.cpf.replace(/\D/g, ""),
+        telefone: form.telefone.replace(/\D/g, ""),
+        cep: form.cep.replace(/\D/g, ""),
+      };
+
+      const validatedData = cadastroCidadaoSchema.parse(formSemMascara);
 
       const userData = {
         ...validatedData,
@@ -199,7 +244,7 @@ const CadastroCidadao = () => {
           <AvatarIcon />
         </Header>
         {mensagem.texto && (
-          <div style={{ 
+          <div style={{
             color: mensagem.tipo === "sucesso" ? "green" : "red",
             marginBottom: "1rem"
           }}>
