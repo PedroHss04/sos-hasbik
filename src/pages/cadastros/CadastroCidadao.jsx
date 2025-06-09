@@ -146,7 +146,7 @@ const CadastroCidadao = () => {
       const userData = {
         ...validatedData,
         senha_hash: hashPassword(validatedData.senha),
-        tipoUsuario: "comum"
+        tipoUsuario: "cidadao"
       };
       delete userData.senha;
 
