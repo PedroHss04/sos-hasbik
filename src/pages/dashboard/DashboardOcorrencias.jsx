@@ -63,10 +63,11 @@ const List = styled.div`
 `;
 
 const Card = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 1.2rem;
   border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  flex-direction: column;
 
   &:last-child {
     border-bottom: none;
@@ -77,10 +78,37 @@ const Card = styled.div`
   }
 `;
 
+const InfoGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+`;
+
 const InfoLine = styled.p`
-  margin: 0.2rem 0;
+  margin: 0;
   color: #374151;
   font-size: 0.95rem;
+`;
+
+const AtenderButton = styled.button`
+  padding: 0.8rem 1.5rem;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.2s;
+
+  &:hover {
+    background-color: #059669;
+  }
+
+  &:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+  }
 `;
 
 const DashboardOcorrencias = () => {
@@ -124,6 +152,47 @@ const DashboardOcorrencias = () => {
     navigate("/login");
   };
 
+  const handleAtender = async (animalId) => {
+    try {
+      const empresaStr = localStorage.getItem("user");
+      if (!empresaStr) {
+        alert("Usuário não autenticado.");
+        return;
+      }
+      const empresa = JSON.parse(empresaStr);
+      const empresaId = empresa?.id;
+      if (!empresaId) {
+        alert("ID da empresa não encontrado.");
+        return;
+      }
+  
+      const { error } = await supabase
+        .from("Animais") // com aspas para tabela case sensitive
+        .update({
+          Em_Atendimento: true,
+          Id_Empresa: empresaId,
+        })
+        .eq("id", animalId);
+  
+      if (error) {
+        console.error("Erro ao atender ocorrência:", error);
+        alert("Erro ao atender ocorrência.");
+        return;
+      }
+  
+      setOcorrencias((prev) =>
+        prev.map((item) =>
+          item.id === animalId
+            ? { ...item, Em_Atendimento: true, Id_Empresa: empresaId }
+            : item
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Erro inesperado ao atender ocorrência.");
+    }
+  }
+
   if (loading) return <Container>Carregando ocorrências...</Container>;
 
   if (errorMsg)
@@ -152,21 +221,35 @@ const DashboardOcorrencias = () => {
         {ocorrencias.length > 0 ? (
           ocorrencias.map((item) => (
             <Card key={item.id}>
-              <InfoLine>
-                <strong>Espécie:</strong> {item.Especie || "—"}
-              </InfoLine>
-              <InfoLine>
-                <strong>Idade:</strong> {item.Idade || "—"}
-              </InfoLine>
-              <InfoLine>
-                <strong>Ferido:</strong> {item.Ferido ? "Sim" : "Não"}
-              </InfoLine>
-              <InfoLine>
-                <strong>Endereço:</strong> {item.Endereco || "—"}
-              </InfoLine>
-              <InfoLine>
-                <strong>Descrição:</strong> {item.Descricao || "—"}
-              </InfoLine>
+              <InfoGroup>
+                <InfoLine>
+                  <strong>Espécie:</strong> {item.Especie || "—"}
+                </InfoLine>
+                <InfoLine>
+                  <strong>Idade:</strong> {item.Idade || "—"}
+                </InfoLine>
+                <InfoLine>
+                  <strong>Ferido:</strong> {item.Ferido ? "Sim" : "Não"}
+                </InfoLine>
+                <InfoLine>
+                  <strong>Endereço:</strong> {item.Endereco || "—"}
+                </InfoLine>
+                <InfoLine>
+                  <strong>Descrição:</strong> {item.Descricao || "—"}
+                </InfoLine>
+                {item.Em_Atendimento && (
+                  <InfoLine>
+                    <strong>Status:</strong> Em atendimento
+                  </InfoLine>
+                )}
+              </InfoGroup>
+
+              <AtenderButton
+                onClick={() => handleAtender(item.id)}
+                disabled={item.Em_Atendimento}
+              >
+                {item.Em_Atendimento ? "Já em Atendimento" : "Atender Ocorrência"}
+              </AtenderButton>
             </Card>
           ))
         ) : (
