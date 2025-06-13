@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaSignOutAlt, FaExclamationTriangle } from "react-icons/fa";
+import { FaSignOutAlt, FaExclamationTriangle, FaArrowLeft } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
 const Container = styled.div`
@@ -12,7 +12,6 @@ const Container = styled.div`
 
 const Header = styled.div`
   display: flex;
-  flex-direction: column;
   align-items: center;
   padding: 1rem;
   margin-bottom: 2rem;
@@ -20,6 +19,7 @@ const Header = styled.div`
   border-radius: 10px;
   color: white;
   position: relative;
+  justify-content: center;
 `;
 
 const Title = styled.h1`
@@ -27,13 +27,36 @@ const Title = styled.h1`
   font-size: 1.8rem;
   font-weight: 600;
   text-align: center;
+  flex: 1;
 `;
 
-const ButtonGroup = styled.div`
+const ButtonGroupLeft = styled.div`
+  position: absolute;
+  left: 1rem;
+`;
+
+const ButtonGroupRight = styled.div`
   position: absolute;
   right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
+`;
+
+const BackButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #2563eb;
+  }
 `;
 
 const LogoutButton = styled.button`
@@ -152,6 +175,10 @@ const DashboardOcorrencias = () => {
     navigate("/login");
   };
 
+  const handleBack = () => {
+    navigate(-1);
+  };
+
   const handleAtender = async (animalId) => {
     try {
       const empresaStr = localStorage.getItem("user");
@@ -165,21 +192,21 @@ const DashboardOcorrencias = () => {
         alert("ID da empresa não encontrado.");
         return;
       }
-  
+
       const { error } = await supabase
-        .from("Animais") // com aspas para tabela case sensitive
+        .from('"Animais"')
         .update({
           Em_Atendimento: true,
           Id_Empresa: empresaId,
         })
         .eq("id", animalId);
-  
+
       if (error) {
         console.error("Erro ao atender ocorrência:", error);
         alert("Erro ao atender ocorrência.");
         return;
       }
-  
+
       setOcorrencias((prev) =>
         prev.map((item) =>
           item.id === animalId
@@ -191,7 +218,7 @@ const DashboardOcorrencias = () => {
       console.error(e);
       alert("Erro inesperado ao atender ocorrência.");
     }
-  }
+  };
 
   if (loading) return <Container>Carregando ocorrências...</Container>;
 
@@ -205,16 +232,24 @@ const DashboardOcorrencias = () => {
   return (
     <Container>
       <Header>
+        <ButtonGroupLeft>
+          <BackButton onClick={handleBack}>
+            <FaArrowLeft />
+            Voltar
+          </BackButton>
+        </ButtonGroupLeft>
+
         <Title>
           <FaExclamationTriangle style={{ marginRight: "0.5rem" }} />
           Ocorrências Registradas
         </Title>
-        <ButtonGroup>
+
+        <ButtonGroupRight>
           <LogoutButton onClick={handleLogout}>
             <FaSignOutAlt />
             Sair
           </LogoutButton>
-        </ButtonGroup>
+        </ButtonGroupRight>
       </Header>
 
       <List>
