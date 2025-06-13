@@ -8,6 +8,7 @@ import {
   FaTimesCircle,
   FaClock,
   FaArrowLeft,
+  FaCheckCircle,
 } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -92,6 +93,9 @@ const Card = styled.div`
   border-radius: 16px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 `;
 
 const OcorrenciasButton = styled.button`
@@ -118,24 +122,6 @@ const OcorrenciasButton = styled.button`
 
   &:active {
     transform: scale(0.98);
-  }
-`;
-
-const BackButton = styled.button`
-  margin-top: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #6b7280;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  cursor: pointer;
-
-  &:hover {
-    background: #4b5563;
   }
 `;
 
@@ -181,10 +167,6 @@ const DashboardEmpresa = () => {
     navigate("/login");
   };
 
-  const handleBack = () => {
-    navigate("/");
-  };
-
   if (loading) return <Container>Carregando...</Container>;
   if (!empresa) return <Container>Acesso não autorizado.</Container>;
 
@@ -201,9 +183,6 @@ const DashboardEmpresa = () => {
             aguarde a aprovação.
           </p>
         </Message>
-        <BackButton onClick={handleBack}>
-          <FaArrowLeft /> Voltar para o Início
-        </BackButton>
       </Container>
     );
   }
@@ -221,9 +200,6 @@ const DashboardEmpresa = () => {
             informações.
           </p>
         </Message>
-        <BackButton onClick={handleBack}>
-          <FaArrowLeft /> Voltar para o Início
-        </BackButton>
       </Container>
     );
   }
@@ -246,6 +222,13 @@ const DashboardEmpresa = () => {
         <Card>
           <OcorrenciasButton onClick={() => navigate("/ocorrencias")}>
             <FaExclamationTriangle /> Acessar Ocorrências
+          </OcorrenciasButton>
+
+          <OcorrenciasButton
+            style={{ backgroundColor: "#059669", boxShadow: "0 4px 14px #05966966" }}
+            onClick={() => navigate("/ocorrencias-atendidas")}
+          >
+            <FaCheckCircle /> Ocorrências Atendidas
           </OcorrenciasButton>
         </Card>
       </Content>
