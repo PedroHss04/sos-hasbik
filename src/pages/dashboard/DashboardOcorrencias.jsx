@@ -133,12 +133,12 @@ const AtenderButton = styled.button`
     cursor: not-allowed;
   }
 `;
-
 const DashboardOcorrencias = () => {
   const navigate = useNavigate();
   const [ocorrencias, setOcorrencias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [atendimentoAtual, setAtendimentoAtual] = useState(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -149,24 +149,38 @@ const DashboardOcorrencias = () => {
       return;
     }
 
-    const fetchOcorrencias = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setErrorMsg(null);
 
-      const { data, error } = await supabase.from("Animais").select("*");
+      try {
+        // 1. Buscar todas as ocorrências
+        const { data: ocorrenciasData, error: ocorrenciasError } = await supabase
+          .from("Animais")
+          .select("*");
 
-      if (error) {
-        console.error("Erro ao buscar ocorrências:", error);
-        setErrorMsg("Erro ao carregar as ocorrências.");
+        if (ocorrenciasError) throw ocorrenciasError;
+
+        // 2. Verificar se a empresa já está atendendo alguma ocorrência
+        const empresa = JSON.parse(storedUser);
+        const { data: atendimentoData, error: atendimentoError } = await supabase
+          .from("Animais")
+          .select("id")
+          .eq("Id_Empresa", empresa.id)
+          .eq("Em_Atendimento", true)
+          .maybeSingle(); // Usando maybeSingle para evitar erros quando não há resultados
+
+        setOcorrencias(ocorrenciasData || []);
+        setAtendimentoAtual(atendimentoData ? atendimentoData.id : null);
+      } catch (error) {
+        console.error("Erro ao buscar dados:", error);
+        setErrorMsg("Erro ao carregar os dados. Por favor, tente novamente.");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setOcorrencias(data || []);
-      setLoading(false);
     };
 
-    fetchOcorrencias();
+    fetchData();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -186,6 +200,7 @@ const DashboardOcorrencias = () => {
         alert("Usuário não autenticado.");
         return;
       }
+      
       const empresa = JSON.parse(empresaStr);
       const empresaId = empresa?.id;
       if (!empresaId) {
@@ -193,41 +208,54 @@ const DashboardOcorrencias = () => {
         return;
       }
 
+      // Verificar se já está atendendo outra ocorrência
+      if (atendimentoAtual && atendimentoAtual !== animalId) {
+        alert("Você já está atendendo outra ocorrência. Finalize o atendimento atual antes de aceitar outro.");
+        return;
+      }
+
+      // Se já está atendendo esta ocorrência, não faz nada
+      if (atendimentoAtual === animalId) {
+        return;
+      }
+
       const { error } = await supabase
-        .from('"Animais"')
+        .from("Animais")
         .update({
           Em_Atendimento: true,
           Id_Empresa: empresaId,
         })
         .eq("id", animalId);
 
-      if (error) {
-        console.error("Erro ao atender ocorrência:", error);
-        alert("Erro ao atender ocorrência.");
-        return;
-      }
+      if (error) throw error;
 
-      setOcorrencias((prev) =>
-        prev.map((item) =>
+      // Atualizar o estado
+      setOcorrencias(prev =>
+        prev.map(item =>
           item.id === animalId
             ? { ...item, Em_Atendimento: true, Id_Empresa: empresaId }
             : item
         )
       );
-    } catch (e) {
-      console.error(e);
-      alert("Erro inesperado ao atender ocorrência.");
+      
+      setAtendimentoAtual(animalId);
+      alert("Ocorrência atendida com sucesso!");
+
+    } catch (error) {
+      console.error("Erro ao atender ocorrência:", error);
+      alert("Erro ao atender ocorrência. Por favor, tente novamente.");
     }
   };
 
   if (loading) return <Container>Carregando ocorrências...</Container>;
 
-  if (errorMsg)
+  if (errorMsg) {
     return (
       <Container>
         <p style={{ color: "red", textAlign: "center" }}>{errorMsg}</p>
       </Container>
     );
+  }
 
   return (
     <Container>
@@ -281,9 +309,18 @@ const DashboardOcorrencias = () => {
 
               <AtenderButton
                 onClick={() => handleAtender(item.id)}
-                disabled={item.Em_Atendimento}
+                disabled={
+                  item.Em_Atendimento || 
+                  (atendimentoAtual && atendimentoAtual !== item.id)
+                }
               >
-                {item.Em_Atendimento ? "Já em Atendimento" : "Atender Ocorrência"}
+                {item.Em_Atendimento && item.Id_Empresa === JSON.parse(localStorage.getItem("user"))?.id
+                  ? "Você está atendendo"
+                  : item.Em_Atendimento
+                  ? "Já em Atendimento"
+                  : atendimentoAtual
+                  ? "Finalize o atendimento atual"
+                  : "Atender Ocorrência"}
               </AtenderButton>
             </Card>
           ))
