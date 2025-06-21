@@ -1,9 +1,26 @@
 import React, { useState, useEffect } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import { FaCheck, FaTimes, FaFileArchive, FaSignOutAlt } from "react-icons/fa";
+import {
+  FaCheck,
+  FaTimes,
+  FaFileArchive,
+  FaSignOutAlt,
+  FaPaperPlane,
+} from "react-icons/fa";
 import { ImSpinner8 } from "react-icons/im";
+
+// --- Keyframes for animations ---
+const fadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const slideIn = keyframes`
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+`;
 
 // --- Styled Components ---
 const Container = styled.div`
@@ -98,7 +115,7 @@ const ActionButton = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition: all 0.2s ease;
   margin-right: 0.5rem;
 
   &:disabled {
@@ -114,8 +131,7 @@ const ActionButton = styled.button`
 const ApproveButton = styled(ActionButton)`
   background-color: #48bb78;
   color: white;
-
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #38a169;
   }
 `;
@@ -123,8 +139,7 @@ const ApproveButton = styled(ActionButton)`
 const RejectButton = styled(ActionButton)`
   background-color: #ef4444;
   color: white;
-
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #dc2626;
   }
 `;
@@ -132,8 +147,7 @@ const RejectButton = styled(ActionButton)`
 const DownloadButton = styled(ActionButton)`
   background-color: #3b82f6;
   color: white;
-
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #2563eb;
   }
 `;
@@ -141,12 +155,83 @@ const DownloadButton = styled(ActionButton)`
 const LoadingIcon = styled(ImSpinner8)`
   animation: spin 1s linear infinite;
   @keyframes spin {
-    0% {
+    from {
       transform: rotate(0deg);
     }
-    100% {
+    to {
       transform: rotate(360deg);
     }
+  }
+`;
+
+// --- Modal Styled Components ---
+const ModalBackdrop = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: ${fadeIn} 0.3s ease;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: ${slideIn} 0.4s ease-out;
+`;
+
+const ModalHeader = styled.h3`
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+`;
+
+const ModalBody = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const TextArea = styled.textarea`
+  width: 100%;
+  min-height: 120px;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  resize: vertical;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+  }
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+`;
+
+const CancelButton = styled(ActionButton)`
+  background-color: #a0aec0;
+  color: white;
+  &:hover:not(:disabled) {
+    background-color: #718096;
   }
 `;
 
@@ -157,10 +242,16 @@ const DashboardAdmin = () => {
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
   const [downloading, setDownloading] = useState(null);
-  const [processing, setProcessing] = useState(null); // Para controlar botões durante processamento
+  const [processing, setProcessing] = useState(null);
+
+  // --- State for Rejection Modal ---
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [companyToReject, setCompanyToReject] = useState(null);
 
   useEffect(() => {
     const fetchAdminData = async () => {
+      // ... (código existente para buscar dados, sem alterações)
       const storedUser = localStorage.getItem("user");
       const storedUserType = localStorage.getItem("userType");
 
@@ -174,7 +265,6 @@ const DashboardAdmin = () => {
       setError(null);
 
       try {
-        // Buscar empresas pendentes com o campo arquivo_zip_url
         const { data: empresasPendentes, error: empresasError } = await supabase
           .from("empresas")
           .select("id, nome, cnpj, arquivo_zip_url")
@@ -184,13 +274,11 @@ const DashboardAdmin = () => {
           setError(
             "Erro ao carregar empresas pendentes: " + empresasError.message
           );
-          console.error("Supabase fetch error:", empresasError);
         } else {
           setCompanies(empresasPendentes || []);
         }
       } catch (err) {
         setError("Erro inesperado ao carregar dados.");
-        console.error("Admin Dashboard Error:", err);
       } finally {
         setLoading(false);
       }
@@ -199,40 +287,34 @@ const DashboardAdmin = () => {
     fetchAdminData();
   }, [navigate]);
 
-  // Função para mover arquivo no Supabase Storage
   const moverArquivo = async (caminhoAtual, novaPasta, empresaId) => {
+    // ... (código existente para mover arquivo, sem alterações)
     if (!caminhoAtual) return null;
 
     try {
-      // Extrair o nome do arquivo do caminho atual
       const nomeArquivo = caminhoAtual.split("/").pop();
       const novoCaminho = `${novaPasta}/${nomeArquivo}`;
 
-      // Copiar arquivo para nova pasta
-      const { data: copyData, error: copyError } = await supabase.storage
+      const { error: copyError } = await supabase.storage
         .from("documentos")
         .copy(caminhoAtual, novoCaminho);
 
       if (copyError) throw copyError;
 
-      // Remover arquivo da pasta antiga
       const { error: removeError } = await supabase.storage
         .from("documentos")
         .remove([caminhoAtual]);
 
       if (removeError) {
         console.warn("Erro ao remover arquivo da pasta antiga:", removeError);
-        // Não falha a operação se não conseguir remover o arquivo antigo
       }
 
-      // Atualizar registro da empresa com o novo caminho
       const { error: updateError } = await supabase
         .from("empresas")
         .update({ arquivo_zip_url: novoCaminho })
         .eq("id", empresaId);
 
       if (updateError) throw updateError;
-
       return novoCaminho;
     } catch (error) {
       console.error("Erro ao mover arquivo:", error);
@@ -241,19 +323,14 @@ const DashboardAdmin = () => {
   };
 
   const handleApprove = async (companyId) => {
+    // ... (código existente para aprovar, sem alterações)
     setProcessing(companyId);
     setError(null);
-
     try {
-      // Encontrar a empresa para obter o caminho do arquivo
       const empresa = companies.find((c) => c.id === companyId);
-
-      // Mover arquivo para pasta 'aprovadas' se existir
       if (empresa && empresa.arquivo_zip_url) {
         await moverArquivo(empresa.arquivo_zip_url, "aprovadas", companyId);
       }
-
-      // Atualizar status da empresa para aprovada
       const { error: updateError } = await supabase
         .from("empresas")
         .update({ aprovacao: "aprovada" })
@@ -262,60 +339,80 @@ const DashboardAdmin = () => {
       if (updateError) {
         setError("Erro ao aprovar empresa: " + updateError.message);
       } else {
-        // Remover empresa da lista de pendentes
         setCompanies(companies.filter((company) => company.id !== companyId));
       }
     } catch (err) {
       setError("Erro inesperado ao aprovar empresa: " + err.message);
-      console.error("Approve Error:", err);
     } finally {
       setProcessing(null);
     }
   };
 
-  const handleReject = async (companyId) => {
-    setProcessing(companyId);
+  // --- NOVA LÓGICA DE RECUSA ---
+
+  const openRejectModal = (company) => {
+    setCompanyToReject(company);
+    setIsRejectModalOpen(true);
+  };
+
+  const closeRejectModal = () => {
+    setIsRejectModalOpen(false);
+    setRejectionReason("");
+    setCompanyToReject(null);
+    setProcessing(null); // Garante que o estado de processamento seja limpo
+  };
+
+  const confirmRejection = async () => {
+    if (!companyToReject || rejectionReason.trim() === "") {
+      setError("A justificativa é obrigatória para recusar uma empresa.");
+      return;
+    }
+
+    setProcessing(companyToReject.id);
     setError(null);
 
     try {
-      // Encontrar a empresa para obter o caminho do arquivo
-      const empresa = companies.find((c) => c.id === companyId);
-
-      // Mover arquivo para pasta 'recusadas' se existir
-      if (empresa && empresa.arquivo_zip_url) {
-        await moverArquivo(empresa.arquivo_zip_url, "recusadas", companyId);
+      if (companyToReject.arquivo_zip_url) {
+        await moverArquivo(
+          companyToReject.arquivo_zip_url,
+          "recusadas",
+          companyToReject.id
+        );
       }
 
-      // Atualizar status da empresa para recusada
+      // Atualiza o status E ADICIONA O MOTIVO DA RECUSA
       const { error: updateError } = await supabase
         .from("empresas")
-        .update({ aprovacao: "recusada" })
-        .eq("id", companyId);
+        .update({
+          aprovacao: "recusada",
+          motivo_recusa: rejectionReason.trim(),
+        })
+        .eq("id", companyToReject.id);
 
       if (updateError) {
         setError("Erro ao recusar empresa: " + updateError.message);
       } else {
-        // Remover empresa da lista de pendentes
-        setCompanies(companies.filter((company) => company.id !== companyId));
+        setCompanies(
+          companies.filter((company) => company.id !== companyToReject.id)
+        );
       }
     } catch (err) {
       setError("Erro inesperado ao recusar empresa: " + err.message);
-      console.error("Reject Error:", err);
     } finally {
-      setProcessing(null);
+      // Fecha o modal e reseta os estados, independentemente do resultado
+      closeRejectModal();
     }
   };
 
   const handleDownload = async (arquivoZipUrl, companyId) => {
+    // ... (código de download existente, sem alterações)
     setDownloading(companyId);
     setError(null);
-
     if (!arquivoZipUrl) {
       setError("Caminho do documento não disponível.");
       setDownloading(null);
       return;
     }
-
     try {
       const { data, error } = await supabase.storage
         .from("documentos")
@@ -326,9 +423,7 @@ const DashboardAdmin = () => {
       } else {
         const link = document.createElement("a");
         link.href = data.signedUrl;
-        link.download = arquivoZipUrl.substring(
-          arquivoZipUrl.lastIndexOf("/") + 1
-        );
+        link.download = arquivoZipUrl.split("/").pop();
         link.target = "_blank";
         document.body.appendChild(link);
         link.click();
@@ -354,89 +449,123 @@ const DashboardAdmin = () => {
   if (!user) return <Container>Acesso não autorizado.</Container>;
 
   return (
-    <Container>
-      <Header>
-        <Title>Painel de Administração - Aprovação de Empresas</Title>
-        <LogoutButton onClick={handleLogout}>
-          <FaSignOutAlt /> Sair
-        </LogoutButton>
-      </Header>
+    <>
+      <Container>
+        <Header>
+          <Title>Painel de Administração - Aprovação de Empresas</Title>
+          <LogoutButton onClick={handleLogout}>
+            <FaSignOutAlt /> Sair
+          </LogoutButton>
+        </Header>
 
-      {companies.length === 0 ? (
-        <p>Não há empresas aguardando aprovação no momento.</p>
-      ) : (
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeader>Empresa</TableHeader>
-              <TableHeader>CNPJ</TableHeader>
-              <TableHeader>Documentos</TableHeader>
-              <TableHeader>Ações</TableHeader>
-            </TableRow>
-          </TableHead>
-          <tbody>
-            {companies.map((company) => (
-              <TableRow key={company.id}>
-                <TableCell>{company.nome}</TableCell>
-                <TableCell>{company.cnpj}</TableCell>
-                <TableCell>
-                  {company.arquivo_zip_url ? (
-                    <DownloadButton
-                      onClick={() =>
-                        handleDownload(company.arquivo_zip_url, company.id)
-                      }
-                      disabled={downloading === company.id}
-                    >
-                      {downloading === company.id ? (
-                        <>
-                          <LoadingIcon /> Baixando...
-                        </>
-                      ) : (
-                        <>
-                          <FaFileArchive /> Baixar Documentos
-                        </>
-                      )}
-                    </DownloadButton>
-                  ) : (
-                    "Nenhum documento enviado"
-                  )}
-                </TableCell>
-                <TableCell>
-                  <ApproveButton
-                    onClick={() => handleApprove(company.id)}
-                    disabled={processing === company.id}
-                  >
-                    {processing === company.id ? (
-                      <>
-                        <LoadingIcon /> Processando...
-                      </>
-                    ) : (
-                      <>
-                        <FaCheck /> Aprovar
-                      </>
-                    )}
-                  </ApproveButton>
-                  <RejectButton
-                    onClick={() => handleReject(company.id)}
-                    disabled={processing === company.id}
-                  >
-                    {processing === company.id ? (
-                      <>
-                        <LoadingIcon /> Processando...
-                      </>
-                    ) : (
-                      <>
-                        <FaTimes /> Recusar
-                      </>
-                    )}
-                  </RejectButton>
-                </TableCell>
+        {companies.length === 0 ? (
+          <p>Não há empresas aguardando aprovação no momento.</p>
+        ) : (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeader>Empresa</TableHeader>
+                <TableHeader>CNPJ</TableHeader>
+                <TableHeader>Documentos</TableHeader>
+                <TableHeader>Ações</TableHeader>
               </TableRow>
-            ))}
-          </tbody>
-        </Table>
+            </TableHead>
+            <tbody>
+              {companies.map((company) => (
+                <TableRow key={company.id}>
+                  <TableCell>{company.nome}</TableCell>
+                  <TableCell>{company.cnpj}</TableCell>
+                  <TableCell>
+                    {company.arquivo_zip_url ? (
+                      <DownloadButton
+                        onClick={() =>
+                          handleDownload(company.arquivo_zip_url, company.id)
+                        }
+                        disabled={downloading === company.id}
+                      >
+                        {downloading === company.id ? (
+                          <LoadingIcon />
+                        ) : (
+                          <FaFileArchive />
+                        )}
+                        {downloading === company.id
+                          ? " Baixando..."
+                          : " Baixar Documentos"}
+                      </DownloadButton>
+                    ) : (
+                      "Nenhum documento enviado"
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <ApproveButton
+                      onClick={() => handleApprove(company.id)}
+                      disabled={processing !== null}
+                    >
+                      {processing === company.id ? (
+                        <LoadingIcon />
+                      ) : (
+                        <FaCheck />
+                      )}
+                      {processing === company.id
+                        ? " Processando..."
+                        : " Aprovar"}
+                    </ApproveButton>
+                    <RejectButton
+                      onClick={() => openRejectModal(company)} // MODIFICADO
+                      disabled={processing !== null}
+                    >
+                      <FaTimes /> Recusar
+                    </RejectButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Container>
+
+      {/* --- RENDERIZAÇÃO DO MODAL DE RECUSA --- */}
+      {isRejectModalOpen && (
+        <ModalBackdrop>
+          <ModalContent>
+            <ModalHeader>Justificar Recusa da Empresa</ModalHeader>
+            <ModalBody>
+              <p>
+                Por favor, descreva o motivo pelo qual a empresa{" "}
+                <strong>{companyToReject?.nome}</strong> está sendo recusada.
+                Esta mensagem poderá ser visualizada pelo solicitante.
+              </p>
+              <TextArea
+                placeholder="Ex: Documentação inválida, CNPJ não corresponde ao cadastro, etc."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                autoFocus
+              />
+            </ModalBody>
+            <ModalFooter>
+              <CancelButton onClick={closeRejectModal}>Cancelar</CancelButton>
+              <ApproveButton // Reutilizando estilo, mas com função de envio
+                onClick={confirmRejection}
+                disabled={
+                  rejectionReason.trim() === "" ||
+                  processing === companyToReject.id
+                }
+              >
+                {processing === companyToReject.id ? (
+                  <>
+                    <LoadingIcon /> Enviando...
+                  </>
+                ) : (
+                  <>
+                    <FaPaperPlane /> Enviar Recusa
+                  </>
+                )}
+              </ApproveButton>
+            </ModalFooter>
+          </ModalContent>
+        </ModalBackdrop>
       )}
-    </Container>
+    </>
   );
 };
 
