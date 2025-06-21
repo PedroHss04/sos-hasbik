@@ -11,7 +11,7 @@ import {
   FaMapMarkerAlt,
   FaPaw,
   FaFirstAid,
-  FaInfoCircle
+  FaInfoCircle,
 } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -189,6 +189,22 @@ const OcorrenciasButton = styled.button`
     transform: scale(0.98);
   }
 `;
+const RejectionReasonBox = styled.div`
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #fffbeb; /* Um amarelo bem claro */
+  border-left: 5px solid #f59e0b; /* Borda amarela */
+  border-radius: 8px;
+  text-align: left;
+  font-size: 1rem;
+  color: #92400e;
+
+  strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #b45309;
+  }
+`;
 
 const DashboardEmpresa = () => {
   const navigate = useNavigate();
@@ -213,7 +229,7 @@ const DashboardEmpresa = () => {
         // Busca dados da empresa
         const { data: empresaData, error: empresaError } = await supabase
           .from("empresas")
-          .select("nome, aprovacao")
+          .select("nome, aprovacao, motivo_recusa")
           .eq("id", parsedEmpresa.id)
           .single();
 
@@ -228,7 +244,10 @@ const DashboardEmpresa = () => {
           .eq("Em_Atendimento", true)
           .single();
 
-        if (ocorrenciaError && !ocorrenciaError.message.includes("No rows found")) {
+        if (
+          ocorrenciaError &&
+          !ocorrenciaError.message.includes("No rows found")
+        ) {
           throw ocorrenciaError;
         }
 
@@ -257,7 +276,7 @@ const DashboardEmpresa = () => {
         .update({
           Em_Atendimento: false,
           Id_Empresa: null,
-          Finalizado: true
+          Finalizado: true,
         })
         .eq("id", ocorrenciaAtual.id);
 
@@ -278,12 +297,26 @@ const DashboardEmpresa = () => {
     return (
       <Container>
         <Message>
-          <FaClock size={24} style={{ color: "#fbbf24", marginBottom: "0.5rem" }} />
-          <p>
-            Sua solicitação de cadastro ainda está sendo analisada. Por favor,
-            aguarde a aprovação.
+          <FaTimesCircle
+            size={32}
+            style={{ color: "#ef4444", marginBottom: "1rem" }}
+          />
+          <p
+            style={{ fontSize: "1.4rem", fontWeight: "600", color: "#1e293b" }}
+          >
+            Seu cadastro foi recusado.
           </p>
+
+          <RejectionReasonBox>
+            <p>
+              <strong>Os Documentos ainda estão sendo analisados</strong>
+            </p>
+          </RejectionReasonBox>
         </Message>
+
+        <LogoutButton onClick={handleLogout}>
+          <FaSignOutAlt /> Sair
+        </LogoutButton>
       </Container>
     );
   }
@@ -292,12 +325,28 @@ const DashboardEmpresa = () => {
     return (
       <Container>
         <Message>
-          <FaTimesCircle size={24} style={{ color: "#ef4444", marginBottom: "0.5rem" }} />
-          <p>
-            Seu cadastro foi recusado. Entre em contato com o suporte para mais
-            informações.
+          <FaTimesCircle
+            size={32}
+            style={{ color: "#ef4444", marginBottom: "1rem" }}
+          />
+          <p
+            style={{ fontSize: "1.4rem", fontWeight: "600", color: "#1e293b" }}
+          >
+            Seu cadastro foi recusado.
           </p>
+
+          <RejectionReasonBox>
+            <strong>Motivo da recusa informado pelo administrador:</strong>
+            <p>
+              {empresa.motivo_recusa ||
+                "Nenhum motivo específico foi fornecido. Entre em contato com o suporte para mais detalhes."}
+            </p>
+          </RejectionReasonBox>
         </Message>
+
+        <LogoutButton onClick={handleLogout}>
+          <FaSignOutAlt /> Sair
+        </LogoutButton>
       </Container>
     );
   }
@@ -323,25 +372,29 @@ const DashboardEmpresa = () => {
               <FaExclamationTriangle /> Ocorrência em Atendimento
               <StatusBadge>Em Atendimento</StatusBadge>
             </OcorrenciaTitle>
-            
+
             <OcorrenciaInfo>
               <InfoItem>
-                <FaPaw /> <strong>Espécie:</strong> {ocorrenciaAtual.Especie || "Não informado"}
+                <FaPaw /> <strong>Espécie:</strong>{" "}
+                {ocorrenciaAtual.Especie || "Não informado"}
               </InfoItem>
-              
+
               <InfoItem>
-                <FaFirstAid /> <strong>Estado:</strong> {ocorrenciaAtual.Ferido ? "Animal ferido" : "Animal saudável"}
+                <FaFirstAid /> <strong>Estado:</strong>{" "}
+                {ocorrenciaAtual.Ferido ? "Animal ferido" : "Animal saudável"}
               </InfoItem>
-              
+
               <InfoItem>
-                <FaMapMarkerAlt /> <strong>Localização:</strong> {ocorrenciaAtual.Endereco || "Local não especificado"}
+                <FaMapMarkerAlt /> <strong>Localização:</strong>{" "}
+                {ocorrenciaAtual.Endereco || "Local não especificado"}
               </InfoItem>
-              
+
               <InfoItem>
-                <FaInfoCircle /> <strong>Descrição:</strong> {ocorrenciaAtual.Descricao || "Sem descrição adicional"}
+                <FaInfoCircle /> <strong>Descrição:</strong>{" "}
+                {ocorrenciaAtual.Descricao || "Sem descrição adicional"}
               </InfoItem>
             </OcorrenciaInfo>
-            
+
             <FinalizarButton onClick={handleFinalizarAtendimento}>
               <FaCheckCircle /> Finalizar Atendimento
             </FinalizarButton>
@@ -354,7 +407,10 @@ const DashboardEmpresa = () => {
           </OcorrenciasButton>
 
           <OcorrenciasButton
-            style={{ backgroundColor: "#059669", boxShadow: "0 4px 14px rgba(5, 150, 105, 0.4)" }}
+            style={{
+              backgroundColor: "#059669",
+              boxShadow: "0 4px 14px rgba(5, 150, 105, 0.4)",
+            }}
             onClick={() => navigate("/ocorrencias-atendidas")}
           >
             <FaCheckCircle /> Ocorrências Atendidas
