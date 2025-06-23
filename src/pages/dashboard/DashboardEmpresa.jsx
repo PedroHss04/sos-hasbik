@@ -12,6 +12,7 @@ import {
   FaPaw,
   FaFirstAid,
   FaInfoCircle,
+  FaComments
 } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -189,20 +190,65 @@ const OcorrenciasButton = styled.button`
     transform: scale(0.98);
   }
 `;
-const RejectionReasonBox = styled.div`
+
+const ComunicacaoContainer = styled.div`
   margin-top: 1.5rem;
   padding: 1rem;
-  background-color: #fffbeb; /* Um amarelo bem claro */
-  border-left: 5px solid #f59e0b; /* Borda amarela */
+  background: #f8fafc;
   border-radius: 8px;
-  text-align: left;
-  font-size: 1rem;
-  color: #92400e;
+  border: 1px solid #e2e8f0;
+`;
 
-  strong {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #b45309;
+const ComunicacaoTitle = styled.h4`
+  margin: 0 0 0.5rem 0;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const MensagemInput = styled.textarea`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  resize: vertical;
+  min-height: 80px;
+  margin-bottom: 0.5rem;
+`;
+
+const EnviarButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.3s ease;
+
+  &:hover {
+    background-color: #2563eb;
+  }
+`;
+
+const MensagensList = styled.div`
+  margin-top: 1rem;
+  max-height: 200px;
+  overflow-y: auto;
+`;
+
+const MensagemItem = styled.div`
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+
+  &:last-child {
+    margin-bottom: 0;
   }
 `;
 
@@ -212,6 +258,8 @@ const DashboardEmpresa = () => {
   const [loading, setLoading] = useState(true);
   const [ocorrenciaAtual, setOcorrenciaAtual] = useState(null);
   const [loadingOcorrencia, setLoadingOcorrencia] = useState(true);
+  const [novaMensagem, setNovaMensagem] = useState('');
+  const [mensagens, setMensagens] = useState([]);
 
   useEffect(() => {
     const checkUserAndFetchData = async () => {
@@ -229,7 +277,7 @@ const DashboardEmpresa = () => {
         // Busca dados da empresa
         const { data: empresaData, error: empresaError } = await supabase
           .from("empresas")
-          .select("nome, aprovacao, motivo_recusa")
+          .select("nome, aprovacao")
           .eq("id", parsedEmpresa.id)
           .single();
 
@@ -244,10 +292,7 @@ const DashboardEmpresa = () => {
           .eq("Em_Atendimento", true)
           .single();
 
-        if (
-          ocorrenciaError &&
-          !ocorrenciaError.message.includes("No rows found")
-        ) {
+        if (ocorrenciaError && !ocorrenciaError.message.includes("No rows found")) {
           throw ocorrenciaError;
         }
 
@@ -263,6 +308,20 @@ const DashboardEmpresa = () => {
     checkUserAndFetchData();
   }, [navigate]);
 
+  // Carrega as mensagens quando a ocorrência atual muda
+  useEffect(() => {
+    if (ocorrenciaAtual?.mensagens_empresa) {
+      try {
+        const msgs = JSON.parse(ocorrenciaAtual.mensagens_empresa);
+        setMensagens(Array.isArray(msgs) ? msgs : []);
+      } catch {
+        setMensagens([]);
+      }
+    } else {
+      setMensagens([]);
+    }
+  }, [ocorrenciaAtual]);
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("userType");
@@ -276,7 +335,7 @@ const DashboardEmpresa = () => {
         .update({
           Em_Atendimento: false,
           Id_Empresa: null,
-          Finalizado: true,
+          Finalizado: true
         })
         .eq("id", ocorrenciaAtual.id);
 
@@ -290,6 +349,37 @@ const DashboardEmpresa = () => {
     }
   };
 
+  const enviarMensagem = async () => {
+    if (!novaMensagem.trim()) return;
+
+    try {
+      const empresa = JSON.parse(localStorage.getItem("user"));
+      const novaMensagemObj = {
+        texto: novaMensagem,
+        data: new Date().toISOString(),
+        enviadoPor: empresa.nome,
+        tipo: 'empresa'
+      };
+
+      const mensagensAtualizadas = [...mensagens, novaMensagemObj];
+      const mensagensString = JSON.stringify(mensagensAtualizadas);
+
+      const { error } = await supabase
+        .from("Animais")
+        .update({ mensagens_empresa: mensagensString })
+        .eq("id", ocorrenciaAtual.id);
+
+      if (error) throw error;
+
+      setMensagens(mensagensAtualizadas);
+      setNovaMensagem('');
+      alert("Mensagem enviada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao enviar mensagem:", error);
+      alert("Erro ao enviar mensagem. Tente novamente.");
+    }
+  };
+
   if (loading) return <Container>Carregando...</Container>;
   if (!empresa) return <Container>Acesso não autorizado.</Container>;
 
@@ -297,26 +387,12 @@ const DashboardEmpresa = () => {
     return (
       <Container>
         <Message>
-          <FaTimesCircle
-            size={32}
-            style={{ color: "#ef4444", marginBottom: "1rem" }}
-          />
-          <p
-            style={{ fontSize: "1.4rem", fontWeight: "600", color: "#1e293b" }}
-          >
-            Seu cadastro esta sendo analisado.
+          <FaClock size={24} style={{ color: "#fbbf24", marginBottom: "0.5rem" }} />
+          <p>
+            Sua solicitação de cadastro ainda está sendo analisada. Por favor,
+            aguarde a aprovação.
           </p>
-
-          <RejectionReasonBox>
-            <p>
-              <strong>Os Documentos ainda estão sendo analisados</strong>
-            </p>
-          </RejectionReasonBox>
         </Message>
-
-        <LogoutButton onClick={handleLogout}>
-          <FaSignOutAlt /> Sair
-        </LogoutButton>
       </Container>
     );
   }
@@ -325,28 +401,12 @@ const DashboardEmpresa = () => {
     return (
       <Container>
         <Message>
-          <FaTimesCircle
-            size={32}
-            style={{ color: "#ef4444", marginBottom: "1rem" }}
-          />
-          <p
-            style={{ fontSize: "1.4rem", fontWeight: "600", color: "#1e293b" }}
-          >
-            Seu cadastro foi recusado.
+          <FaTimesCircle size={24} style={{ color: "#ef4444", marginBottom: "0.5rem" }} />
+          <p>
+            Seu cadastro foi recusado. Entre em contato com o suporte para mais
+            informações.
           </p>
-
-          <RejectionReasonBox>
-            <strong>Motivo da recusa informado pelo administrador:</strong>
-            <p>
-              {empresa.motivo_recusa ||
-                "Nenhum motivo específico foi fornecido. Entre em contato com o suporte para mais detalhes."}
-            </p>
-          </RejectionReasonBox>
         </Message>
-
-        <LogoutButton onClick={handleLogout}>
-          <FaSignOutAlt /> Sair
-        </LogoutButton>
       </Container>
     );
   }
@@ -372,32 +432,56 @@ const DashboardEmpresa = () => {
               <FaExclamationTriangle /> Ocorrência em Atendimento
               <StatusBadge>Em Atendimento</StatusBadge>
             </OcorrenciaTitle>
-
+            
             <OcorrenciaInfo>
               <InfoItem>
-                <FaPaw /> <strong>Espécie:</strong>{" "}
-                {ocorrenciaAtual.Especie || "Não informado"}
+                <FaPaw /> <strong>Espécie:</strong> {ocorrenciaAtual.Especie || "Não informado"}
               </InfoItem>
-
+              
               <InfoItem>
-                <FaFirstAid /> <strong>Estado:</strong>{" "}
-                {ocorrenciaAtual.Ferido ? "Animal ferido" : "Animal saudável"}
+                <FaFirstAid /> <strong>Estado:</strong> {ocorrenciaAtual.Ferido ? "Animal ferido" : "Animal saudável"}
               </InfoItem>
-
+              
               <InfoItem>
-                <FaMapMarkerAlt /> <strong>Localização:</strong>{" "}
-                {ocorrenciaAtual.Endereco || "Local não especificado"}
+                <FaMapMarkerAlt /> <strong>Localização:</strong> {ocorrenciaAtual.Endereco || "Local não especificado"}
               </InfoItem>
-
+              
               <InfoItem>
-                <FaInfoCircle /> <strong>Descrição:</strong>{" "}
-                {ocorrenciaAtual.Descricao || "Sem descrição adicional"}
+                <FaInfoCircle /> <strong>Descrição:</strong> {ocorrenciaAtual.Descricao || "Sem descrição adicional"}
               </InfoItem>
             </OcorrenciaInfo>
-
+            
             <FinalizarButton onClick={handleFinalizarAtendimento}>
               <FaCheckCircle /> Finalizar Atendimento
             </FinalizarButton>
+
+            <ComunicacaoContainer>
+              <ComunicacaoTitle>
+                <FaComments /> Comunicação com o Usuário
+              </ComunicacaoTitle>
+              
+              <MensagemInput
+                value={novaMensagem}
+                onChange={(e) => setNovaMensagem(e.target.value)}
+                placeholder="Digite sua mensagem para o usuário..."
+              />
+              <EnviarButton onClick={enviarMensagem}>
+                Enviar Mensagem
+              </EnviarButton>
+              
+              {mensagens.length > 0 && (
+                <MensagensList>
+                  {mensagens.map((msg, index) => (
+                    <MensagemItem key={index}>
+                      <div><strong>{msg.enviadoPor}:</strong> {msg.texto}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                        {new Date(msg.data).toLocaleString()}
+                      </div>
+                    </MensagemItem>
+                  ))}
+                </MensagensList>
+              )}
+            </ComunicacaoContainer>
           </CurrentOcorrenciaCard>
         )}
 
@@ -407,10 +491,7 @@ const DashboardEmpresa = () => {
           </OcorrenciasButton>
 
           <OcorrenciasButton
-            style={{
-              backgroundColor: "#059669",
-              boxShadow: "0 4px 14px rgba(5, 150, 105, 0.4)",
-            }}
+            style={{ backgroundColor: "#059669", boxShadow: "0 4px 14px rgba(5, 150, 105, 0.4)" }}
             onClick={() => navigate("/ocorrencias-atendidas")}
           >
             <FaCheckCircle /> Ocorrências Atendidas
