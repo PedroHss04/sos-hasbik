@@ -304,7 +304,7 @@ const DashboardEmpresa = () => {
           <p
             style={{ fontSize: "1.4rem", fontWeight: "600", color: "#1e293b" }}
           >
-            Seu cadastro foi recusado.
+            Seu cadastro esta sendo analisado.
           </p>
 
           <RejectionReasonBox>
