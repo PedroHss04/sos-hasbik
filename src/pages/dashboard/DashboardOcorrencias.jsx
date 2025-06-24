@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaSignOutAlt, FaExclamationTriangle, FaArrowLeft } from "react-icons/fa";
+import {
+  FaSignOutAlt,
+  FaExclamationTriangle,
+  FaArrowLeft,
+} from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 
 const Container = styled.div`
@@ -155,20 +159,24 @@ const DashboardOcorrencias = () => {
 
       try {
         // 1. Buscar todas as ocorrências
-        const { data: ocorrenciasData, error: ocorrenciasError } = await supabase
-          .from("Animais")
-          .select("*");
+        const { data: ocorrenciasData, error: ocorrenciasError } =
+          await supabase
+            .from("Animais")
+            .select("*")
+            .or("finalizado.is.false,finalizado.is.null")
+            .or("Em_Atendimento.is.false,Em_Atendimento.is.null");
 
         if (ocorrenciasError) throw ocorrenciasError;
 
         // 2. Verificar se a empresa já está atendendo alguma ocorrência
         const empresa = JSON.parse(storedUser);
-        const { data: atendimentoData, error: atendimentoError } = await supabase
-          .from("Animais")
-          .select("id")
-          .eq("Id_Empresa", empresa.id)
-          .eq("Em_Atendimento", true)
-          .maybeSingle(); // Usando maybeSingle para evitar erros quando não há resultados
+        const { data: atendimentoData, error: atendimentoError } =
+          await supabase
+            .from("Animais")
+            .select("id")
+            .eq("Id_Empresa", empresa.id)
+            .eq("Em_Atendimento", true)
+            .maybeSingle(); // Usando maybeSingle para evitar erros quando não há resultados
 
         setOcorrencias(ocorrenciasData || []);
         setAtendimentoAtual(atendimentoData ? atendimentoData.id : null);
@@ -200,7 +208,7 @@ const DashboardOcorrencias = () => {
         alert("Usuário não autenticado.");
         return;
       }
-      
+
       const empresa = JSON.parse(empresaStr);
       const empresaId = empresa?.id;
       if (!empresaId) {
@@ -210,7 +218,9 @@ const DashboardOcorrencias = () => {
 
       // Verificar se já está atendendo outra ocorrência
       if (atendimentoAtual && atendimentoAtual !== animalId) {
-        alert("Você já está atendendo outra ocorrência. Finalize o atendimento atual antes de aceitar outro.");
+        alert(
+          "Você já está atendendo outra ocorrência. Finalize o atendimento atual antes de aceitar outro."
+        );
         return;
       }
 
@@ -230,17 +240,16 @@ const DashboardOcorrencias = () => {
       if (error) throw error;
 
       // Atualizar o estado
-      setOcorrencias(prev =>
-        prev.map(item =>
+      setOcorrencias((prev) =>
+        prev.map((item) =>
           item.id === animalId
             ? { ...item, Em_Atendimento: true, Id_Empresa: empresaId }
             : item
         )
       );
-      
+
       setAtendimentoAtual(animalId);
       alert("Ocorrência atendida com sucesso!");
-
     } catch (error) {
       console.error("Erro ao atender ocorrência:", error);
       alert("Erro ao atender ocorrência. Por favor, tente novamente.");
@@ -310,11 +319,12 @@ const DashboardOcorrencias = () => {
               <AtenderButton
                 onClick={() => handleAtender(item.id)}
                 disabled={
-                  item.Em_Atendimento || 
+                  item.Em_Atendimento ||
                   (atendimentoAtual && atendimentoAtual !== item.id)
                 }
               >
-                {item.Em_Atendimento && item.Id_Empresa === JSON.parse(localStorage.getItem("user"))?.id
+                {item.Em_Atendimento &&
+                item.Id_Empresa === JSON.parse(localStorage.getItem("user"))?.id
                   ? "Você está atendendo"
                   : item.Em_Atendimento
                   ? "Já em Atendimento"
