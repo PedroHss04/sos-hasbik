@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaSignOutAlt, FaPlus, FaPaw, FaComments, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaSignOutAlt,
+  FaPlus,
+  FaPaw,
+  FaComments,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaCheckSquare,
+} from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 import DetalhesAnimal from "../detalhesAnimal/DetalhesAnimal";
+import { FaCheckDouble } from "react-icons/fa6";
 
 const Container = styled.div`
   padding: 1rem;
@@ -101,7 +110,12 @@ const StatusBadge = styled.span`
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 500;
-  background-color: ${props => props.status === 'Em Atendimento' ? '#3b82f6' : '#10b981'};
+  background-color: ${(props) =>
+    props.status === "Em Atendimento"
+      ? "#3b82f6"
+      : props.status === "Finalizado"
+      ? "#4F46E5"
+      : "#10b981"};
   color: white;
   margin-left: 1rem;
 `;
@@ -201,7 +215,7 @@ const Dashboard = () => {
   const [userType, setUserType] = useState("");
   const [animals, setAnimals] = useState([]);
   const [animalSelecionado, setAnimalSelecionado] = useState(null);
-  const [novaMensagem, setNovaMensagem] = useState('');
+  const [novaMensagem, setNovaMensagem] = useState("");
   const [mensagens, setMensagens] = useState([]);
 
   useEffect(() => {
@@ -276,7 +290,7 @@ const Dashboard = () => {
         texto: novaMensagem,
         data: new Date().toISOString(),
         enviadoPor: user.nome,
-        tipo: 'usuario'
+        tipo: "usuario",
       };
 
       const mensagensAtualizadas = [...mensagens, novaMensagemObj];
@@ -292,17 +306,19 @@ const Dashboard = () => {
       // Atualiza o estado local do animal selecionado
       const updatedAnimal = {
         ...animalSelecionado,
-        mensagens_empresa: mensagensString
+        mensagens_empresa: mensagensString,
       };
       setAnimalSelecionado(updatedAnimal);
 
       // Atualiza a lista de animais
-      setAnimals(animals.map(animal => 
-        animal.id === updatedAnimal.id ? updatedAnimal : animal
-      ));
+      setAnimals(
+        animals.map((animal) =>
+          animal.id === updatedAnimal.id ? updatedAnimal : animal
+        )
+      );
 
       setMensagens(mensagensAtualizadas);
-      setNovaMensagem('');
+      setNovaMensagem("");
       alert("Mensagem enviada com sucesso!");
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
@@ -344,6 +360,11 @@ const Dashboard = () => {
                       Em Atendimento
                     </StatusBadge>
                   )}
+                  {animal.finalizado && (
+                    <StatusBadge status="Finalizado">
+                      Atendimento finalizado
+                    </StatusBadge>
+                  )}
                 </AnimalName>
                 <AnimalDetails>
                   {animal.Especie} • {animal.Idade} • {animal.Descricao} •
@@ -374,96 +395,132 @@ const Dashboard = () => {
       </FooterButtons>
 
       {animalSelecionado && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-    <div style={{
-      backgroundColor: 'white',
-      padding: '2rem',
-      borderRadius: '10px',
-      width: '80%',
-      maxWidth: '600px',
-      maxHeight: '80vh',
-      overflowY: 'auto'
-    }}>
-      <h3>{animalSelecionado.nome}</h3>
-      
-      <div style={{ margin: '1rem 0' }}>
-        <p><strong>Espécie:</strong> {animalSelecionado.Especie}</p>
-        <p><strong>Idade:</strong> {animalSelecionado.Idade}</p>
-        <p><strong>Estado:</strong> {animalSelecionado.Ferido ? 'Ferido' : 'Saudável'}</p>
-        <p><strong>Cadastrado em:</strong> {animalSelecionado.dataCadastro}</p>
-        <p><strong>Descrição:</strong> {animalSelecionado.Descricao}</p>
-      </div>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "2rem",
+              borderRadius: "10px",
+              width: "80%",
+              maxWidth: "600px",
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+          >
+            <h3>{animalSelecionado.nome}</h3>
 
-      {/* Seção de Comunicação */}
-      <ComunicacaoContainer>
-        <ComunicacaoTitle>
-          <FaComments /> Comunicação com a Empresa
-        </ComunicacaoTitle>
-        
-        {animalSelecionado.Em_Atendimento ? (
-          <>
-            <MensagemInput
-              value={novaMensagem}
-              onChange={(e) => setNovaMensagem(e.target.value)}
-              placeholder="Digite sua mensagem para a empresa..."
-            />
-            <EnviarButton onClick={enviarMensagem}>
-              Enviar Mensagem
-            </EnviarButton>
-            
-            {mensagens.length > 0 ? (
-              <MensagensList>
-                {mensagens.map((msg, index) => (
-                  <MensagemItem key={index}>
-                    <div><strong>{msg.enviadoPor}:</strong> {msg.texto}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      {new Date(msg.data).toLocaleString()}
-                    </div>
-                  </MensagemItem>
-                ))}
-              </MensagensList>
-            ) : (
-              <p style={{ color: '#64748b', textAlign: 'center' }}>
-                Nenhuma mensagem ainda. Envie a primeira mensagem!
+            <div style={{ margin: "1rem 0" }}>
+              <p>
+                <strong>Espécie:</strong> {animalSelecionado.Especie}
               </p>
-            )}
-          </>
-        ) : (
-          <p style={{ color: '#64748b', textAlign: 'center' }}>
-            <FaExclamationTriangle style={{ marginRight: '0.5rem' }} />
-            Esta ocorrência ainda não está em atendimento por uma empresa.
-          </p>
-        )}
-      </ComunicacaoContainer>
+              <p>
+                <strong>Idade:</strong> {animalSelecionado.Idade}
+              </p>
+              <p>
+                <strong>Estado:</strong>{" "}
+                {animalSelecionado.Ferido ? "Ferido" : "Saudável"}
+              </p>
+              <p>
+                <strong>Cadastrado em:</strong> {animalSelecionado.dataCadastro}
+              </p>
+              <p>
+                <strong>Descrição:</strong> {animalSelecionado.Descricao}
+              </p>
+            </div>
 
-      <button 
-        onClick={() => setAnimalSelecionado(null)}
-        style={{
-          marginTop: '1rem',
-          padding: '0.5rem 1rem',
-          backgroundColor: '#ef4444',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}
-      >
-        Fechar
-      </button>
-    </div>
-  </div>
-)}
+            {/* Seção de Comunicação */}
+            <ComunicacaoContainer>
+              <ComunicacaoTitle>
+                <FaComments /> Comunicação com a Empresa
+              </ComunicacaoTitle>
+
+              {animalSelecionado.Em_Atendimento ? (
+                <>
+                  <MensagemInput
+                    value={novaMensagem}
+                    onChange={(e) => setNovaMensagem(e.target.value)}
+                    placeholder="Digite sua mensagem para a empresa..."
+                  />
+                  <EnviarButton onClick={enviarMensagem}>
+                    Enviar Mensagem
+                  </EnviarButton>
+
+                  {mensagens.length > 0 ? (
+                    <MensagensList>
+                      {mensagens.map((msg, index) => (
+                        <MensagemItem key={index}>
+                          <div>
+                            <strong>{msg.enviadoPor}:</strong> {msg.texto}
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                            {new Date(msg.data).toLocaleString()}
+                          </div>
+                        </MensagemItem>
+                      ))}
+                    </MensagensList>
+                  ) : (
+                    <p style={{ color: "#64748b", textAlign: "center" }}>
+                      Nenhuma mensagem ainda. Envie a primeira mensagem!
+                    </p>
+                  )}
+                </>
+              ) : animalSelecionado.finalizado ? (
+                <>
+                  <p style={{ color: "#64748b", textAlign: "center" }}>
+                    <FaCheckSquare style={{ marginRight: "0.5rem" }} />
+                    Atendimento concluído.
+                  </p>
+                  <MensagensList>
+                    {mensagens.map((msg, index) => (
+                      <MensagemItem key={index}>
+                        <div>
+                          <strong>{msg.enviadoPor}:</strong> {msg.texto}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                          {new Date(msg.data).toLocaleString()}
+                        </div>
+                      </MensagemItem>
+                    ))}
+                  </MensagensList>
+                </>
+              ) : (
+                <p style={{ color: "#64748b", textAlign: "center" }}>
+                  <FaExclamationTriangle style={{ marginRight: "0.5rem" }} />
+                  Esta ocorrência ainda não está em atendimento por uma empresa.
+                </p>
+              )}
+            </ComunicacaoContainer>
+
+            <button
+              onClick={() => setAnimalSelecionado(null)}
+              style={{
+                marginTop: "1rem",
+                padding: "0.5rem 1rem",
+                backgroundColor: "#ef4444",
+                color: "white",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      )}
     </Container>
   );
 };
