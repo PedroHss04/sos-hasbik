@@ -11,12 +11,12 @@ const animalSchema = z.object({
   Idade: z.string().nonempty("Selecione a idade"),
   Ferido: z.boolean({
     required_error: "Selecione se o animal está ferido",
-    invalid_type_error: "Selecione Sim ou Não"
+    invalid_type_error: "Selecione Sim ou Não",
   }),
   Endereco: z.string().min(5, "Endereço deve ter pelo menos 5 caracteres"),
   Descricao: z.string().optional(),
   Timestamp: z.string().optional(),
-  Id_Usuario: z.string().uuid()
+  Id_Usuario: z.string().uuid(),
 });
 
 // Styled Components
@@ -34,7 +34,7 @@ const Header = styled.div`
   align-items: center;
   padding: 1rem;
   margin-bottom: 2rem;
-  background-color: #2B6CB0;
+  background-color: #2b6cb0;
   border-radius: 10px;
   color: white;
 `;
@@ -135,12 +135,13 @@ const StatusButton = styled.button`
         : "#ef4444"
       : "#f1f5f9"};
   color: ${(props) => (props.selected ? "white" : "#64748b")};
-  border: 1px solid ${(props) =>
-    props.selected
-      ? props.variant === "success"
-        ? "#10b981"
-        : "#ef4444"
-      : "#cbd5e1"};
+  border: 1px solid
+    ${(props) =>
+      props.selected
+        ? props.variant === "success"
+          ? "#10b981"
+          : "#ef4444"
+        : "#cbd5e1"};
 
   &:hover {
     background-color: ${(props) =>
@@ -159,7 +160,7 @@ const SubmitButton = styled.button`
   gap: 0.5rem;
   width: 100%;
   padding: 1rem;
-  background-color: #38A169;
+  background-color: #38a169;
   color: white;
   border: none;
   border-radius: 8px;
@@ -170,7 +171,7 @@ const SubmitButton = styled.button`
   margin-top: 1rem;
 
   &:hover {
-    background-color: #2F855A;
+    background-color: #2f855a;
   }
 `;
 
@@ -183,7 +184,7 @@ export default function CadastroAnimal() {
     descricao: "",
     endereco: "",
     data: "",
-    horario: ""
+    horario: "",
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -193,7 +194,7 @@ export default function CadastroAnimal() {
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("user"));
     if (!userData?.id) {
-      navigate('/login');
+      navigate("/login");
     }
   }, [navigate]);
 
@@ -201,13 +202,13 @@ export default function CadastroAnimal() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const handleToggle = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
   };
 
   const handleSubmit = async (e) => {
@@ -219,7 +220,7 @@ export default function CadastroAnimal() {
     try {
       const userData = JSON.parse(localStorage.getItem("user"));
       console.log("Dados do usuário:", userData);
-      
+
       if (!userData?.id) {
         throw new Error("Sessão expirada. Faça login novamente.");
       }
@@ -233,12 +234,12 @@ export default function CadastroAnimal() {
           Endereco: formData.endereco,
           Descricao: formData.descricao,
           Timestamp: new Date().toISOString(),
-          Id_Usuario: userData.id
+          Id_Usuario: userData.id,
         });
       } catch (validationError) {
         if (validationError instanceof z.ZodError) {
           const fieldErrors = {};
-          validationError.errors.forEach(err => {
+          validationError.errors.forEach((err) => {
             fieldErrors[err.path[0]] = err.message;
           });
           setErrors(fieldErrors);
@@ -248,23 +249,26 @@ export default function CadastroAnimal() {
       }
 
       const { data, error } = await supabase
-        .from('Animais')
-        .insert([{
-          Especie: formData.especie,
-          Idade: formData.idade,
-          Ferido: formData.ferido,
-          Endereco: formData.endereco,
-          Descricao: formData.descricao,
-          Timestamp: new Date().toISOString(),
-          Id_Usuario: userData.id
-        }])
+        .from("Animais")
+        .insert([
+          {
+            Especie: formData.especie,
+            Idade: formData.idade,
+            Ferido: formData.ferido,
+            Endereco: formData.endereco,
+            Descricao: formData.descricao,
+            Timestamp: new Date().toISOString(),
+            Id_Usuario: userData.id,
+            finalizado: false,
+          },
+        ])
         .select();
 
       if (error) throw error;
 
       setMessage({
         text: "Animal cadastrado com sucesso",
-        type: "success"
+        type: "success",
       });
 
       // Limpar formulário
@@ -275,18 +279,17 @@ export default function CadastroAnimal() {
         descricao: "",
         endereco: "",
         data: "",
-        horario: ""
+        horario: "",
       });
-
     } catch (error) {
       console.error("Erro completo:", error);
-      setMessage({ 
+      setMessage({
         text: error.message || "Erro ao cadastrar animal",
-        type: "error" 
+        type: "error",
       });
-      
+
       if (error.message.includes("Sessão expirada")) {
-        setTimeout(() => navigate('/login'), 2000);
+        setTimeout(() => navigate("/login"), 2000);
       }
     } finally {
       setIsSubmitting(false);
@@ -304,13 +307,15 @@ export default function CadastroAnimal() {
       </Header>
 
       {message.text && (
-        <div style={{
-          color: message.type === "success" ? "#38A169" : "#E53E3E",
-          margin: "1rem 0",
-          padding: "0.5rem",
-          textAlign: "center",
-          fontWeight: "500"
-        }}>
+        <div
+          style={{
+            color: message.type === "success" ? "#38A169" : "#E53E3E",
+            margin: "1rem 0",
+            padding: "0.5rem",
+            textAlign: "center",
+            fontWeight: "500",
+          }}
+        >
           {message.text}
         </div>
       )}
