@@ -1,99 +1,136 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { FaSignOutAlt, FaPlus, FaPaw, FaComments, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaSignOutAlt,
+  FaBuilding,
+  FaExclamationTriangle,
+  FaTimesCircle,
+  FaClock,
+  FaCheckCircle,
+  FaMapMarkerAlt,
+  FaPaw,
+  FaFirstAid,
+  FaInfoCircle,
+  FaComments,
+} from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
-import DetalhesAnimal from "../detalhesAnimal/DetalhesAnimal";
 
 const Container = styled.div`
-  padding: 1rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f6f8fc 0%, #e9f0f7 100%);
+`;
+
+const Content = styled.div`
+  width: 100%;
+  max-width: 800px;
 `;
 
 const Header = styled.div`
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  padding: 1rem;
   margin-bottom: 2rem;
-  background-color: #4f46e5;
-  border-radius: 10px;
-  color: white;
-  position: relative;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 `;
 
 const Title = styled.h1`
-  margin: 0;
-  font-size: 1.8rem;
+  font-size: 2rem;
+  color: #1a365d;
   font-weight: 600;
-  text-align: center;
-`;
-
-const ButtonGroup = styled.div`
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
 `;
 
 const LogoutButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.7rem 1.2rem;
+  padding: 0.75rem 1.5rem;
   background: #ef4444;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 1rem;
-  font-weight: 500;
-  transition: background 0.2s;
+  transition: all 0.3s ease;
 
   &:hover {
     background: #dc2626;
   }
 `;
 
-const AnimalsList = styled.div`
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem;
+const Message = styled.div`
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2rem;
+  border-radius: 16px;
+  text-align: center;
+  color: #1e293b;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   margin-bottom: 2rem;
 `;
 
-const AnimalCard = styled.div`
-  padding: 1.2rem;
-  border-bottom: 1px solid #e2e8f0;
+const WelcomeMessage = styled.div`
+  font-size: 1.3rem;
+  color: #4a5568;
+  margin-bottom: 2rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1.5rem;
+  border-radius: 16px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  cursor: pointer;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background: #f9fafb;
-  }
+  gap: 1rem;
+  justify-content: center;
 `;
 
-const AnimalInfo = styled.div`
-  flex: 1;
+const Card = styled.div`
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 `;
 
-const AnimalName = styled.h3`
-  margin: 0 0 0.5rem 0;
-  color: #1e293b;
+const CurrentOcorrenciaCard = styled.div`
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
 `;
 
-const AnimalDetails = styled.p`
-  margin: 0;
-  color: #64748b;
-  font-size: 0.9rem;
+const OcorrenciaTitle = styled.h3`
+  font-size: 1.3rem;
+  color: #1a365d;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const OcorrenciaInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+`;
+
+const InfoItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  color: #4a5568;
 `;
 
 const StatusBadge = styled.span`
@@ -101,39 +138,59 @@ const StatusBadge = styled.span`
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 500;
-  background-color: ${props => props.status === 'Em Atendimento' ? '#3b82f6' : '#10b981'};
+  background-color: #3b82f6;
   color: white;
-  margin-left: 1rem;
+  margin-left: auto;
 `;
 
-const FooterButtons = styled.div`
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
+const FinalizarButton = styled.button`
   margin-top: 1.5rem;
-`;
-
-const ActionButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 1.5rem;
-  background: ${(props) => (props.primary ? "#4f46e5" : "#10b981")};
+  padding: 0.75rem 1.5rem;
+  background-color: #ef4444;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
-  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background 0.3s ease;
 
   &:hover {
-    background: ${(props) => (props.primary ? "#4338ca" : "#059669")};
-    transform: translateY(-2px);
+    background-color: #dc2626;
   }
 `;
 
-// Estilos para a comunicação
+const OcorrenciasButton = styled.button`
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+  transition: background 0.3s ease, transform 0.2s ease;
+
+  &:hover {
+    background: #1e40af;
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+`;
+
 const ComunicacaoContainer = styled.div`
   margin-top: 1.5rem;
   padding: 1rem;
@@ -195,60 +252,70 @@ const MensagemItem = styled.div`
   }
 `;
 
-const Dashboard = () => {
+const DashboardEmpresa = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [userType, setUserType] = useState("");
-  const [animals, setAnimals] = useState([]);
-  const [animalSelecionado, setAnimalSelecionado] = useState(null);
-  const [novaMensagem, setNovaMensagem] = useState('');
+  const [empresa, setEmpresa] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [ocorrenciaAtual, setOcorrenciaAtual] = useState(null);
+  const [loadingOcorrencia, setLoadingOcorrencia] = useState(true);
+  const [novaMensagem, setNovaMensagem] = useState("");
   const [mensagens, setMensagens] = useState([]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const storedUserType = localStorage.getItem("userType");
+    const checkUserAndFetchData = async () => {
+      const storedUser = localStorage.getItem("user");
+      const storedUserType = localStorage.getItem("userType");
 
-    if (!storedUser || storedUserType !== "cidadao") {
-      navigate("/login");
-      return;
-    }
-
-    const parsedUser = JSON.parse(storedUser);
-    setUser(parsedUser);
-    setUserType(storedUserType);
-
-    const fetchAnimals = async () => {
-      const userId = parsedUser.id;
-      const { data, error } = await supabase
-        .from("Animais")
-        .select("*")
-        .eq("Id_Usuario", userId)
-        .order("Timestamp", { ascending: false });
-
-      if (error) {
-        console.error("Erro ao buscar animais:", error);
+      if (!storedUser || storedUserType !== "empresa") {
+        navigate("/login");
         return;
       }
 
-      const formattedData = data.map((animal) => ({
-        ...animal,
-        nome: animal.Especie,
-        dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
-        idade: animal.Idade,
-        descricao: animal.Descricao,
-      }));
+      const parsedEmpresa = JSON.parse(storedUser);
 
-      setAnimals(formattedData);
+      try {
+        // Busca dados da empresa
+        const { data: empresaData, error: empresaError } = await supabase
+          .from("empresas")
+          .select("nome, aprovacao")
+          .eq("id", parsedEmpresa.id)
+          .single();
+
+        if (empresaError) throw empresaError;
+        setEmpresa(empresaData);
+
+        // Busca ocorrência em atendimento
+        const { data: ocorrenciaData, error: ocorrenciaError } = await supabase
+          .from("Animais")
+          .select("*")
+          .eq("Id_Empresa", parsedEmpresa.id)
+          .eq("Em_Atendimento", true)
+          .single();
+
+        if (
+          ocorrenciaError &&
+          !ocorrenciaError.message.includes("No rows found")
+        ) {
+          throw ocorrenciaError;
+        }
+
+        setOcorrenciaAtual(ocorrenciaData || null);
+      } catch (err) {
+        console.error("Erro ao buscar dados:", err);
+      } finally {
+        setLoading(false);
+        setLoadingOcorrencia(false);
+      }
     };
 
-    fetchAnimals();
+    checkUserAndFetchData();
   }, [navigate]);
 
-  // Carrega as mensagens quando um animal é selecionado
+  // Carrega as mensagens quando a ocorrência atual muda
   useEffect(() => {
-    if (animalSelecionado?.mensagens_empresa) {
+    if (ocorrenciaAtual?.mensagens_empresa) {
       try {
-        const msgs = JSON.parse(animalSelecionado.mensagens_empresa);
+        const msgs = JSON.parse(ocorrenciaAtual.mensagens_empresa);
         setMensagens(Array.isArray(msgs) ? msgs : []);
       } catch {
         setMensagens([]);
@@ -256,7 +323,7 @@ const Dashboard = () => {
     } else {
       setMensagens([]);
     }
-  }, [animalSelecionado]);
+  }, [ocorrenciaAtual]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -264,19 +331,36 @@ const Dashboard = () => {
     navigate("/login");
   };
 
-  const handleRegisterAnimal = () => {
-    navigate("/cadastro_animal");
+  const handleFinalizarAtendimento = async () => {
+    try {
+      const { error } = await supabase
+        .from("Animais")
+        .update({
+          Em_Atendimento: false,
+          finalizado: true,
+        })
+        .eq("id", ocorrenciaAtual.id);
+
+      if (error) throw error;
+
+      setOcorrenciaAtual(null);
+      alert("Atendimento finalizado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao finalizar atendimento:", error);
+      alert("Erro ao finalizar atendimento. Por favor, tente novamente.");
+    }
   };
 
   const enviarMensagem = async () => {
-    if (!novaMensagem.trim() || !animalSelecionado) return;
+    if (!novaMensagem.trim()) return;
 
     try {
+      const empresa = JSON.parse(localStorage.getItem("user"));
       const novaMensagemObj = {
         texto: novaMensagem,
         data: new Date().toISOString(),
-        enviadoPor: user.nome,
-        tipo: 'usuario'
+        enviadoPor: empresa.nome,
+        tipo: "empresa",
       };
 
       const mensagensAtualizadas = [...mensagens, novaMensagemObj];
@@ -285,24 +369,12 @@ const Dashboard = () => {
       const { error } = await supabase
         .from("Animais")
         .update({ mensagens_empresa: mensagensString })
-        .eq("id", animalSelecionado.id);
+        .eq("id", ocorrenciaAtual.id);
 
       if (error) throw error;
 
-      // Atualiza o estado local do animal selecionado
-      const updatedAnimal = {
-        ...animalSelecionado,
-        mensagens_empresa: mensagensString
-      };
-      setAnimalSelecionado(updatedAnimal);
-
-      // Atualiza a lista de animais
-      setAnimals(animals.map(animal => 
-        animal.id === updatedAnimal.id ? updatedAnimal : animal
-      ));
-
       setMensagens(mensagensAtualizadas);
-      setNovaMensagem('');
+      setNovaMensagem("");
       alert("Mensagem enviada com sucesso!");
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
@@ -310,155 +382,141 @@ const Dashboard = () => {
     }
   };
 
-  if (!user) return null;
+  if (loading) return <Container>Carregando...</Container>;
+  if (!empresa) return <Container>Acesso não autorizado.</Container>;
+
+  if (empresa.aprovacao === "pendente") {
+    return (
+      <Container>
+        <Message>
+          <FaClock
+            size={24}
+            style={{ color: "#fbbf24", marginBottom: "0.5rem" }}
+          />
+          <p>
+            Sua solicitação de cadastro ainda está sendo analisada. Por favor,
+            aguarde a aprovação.
+          </p>
+        </Message>
+      </Container>
+    );
+  }
+
+  if (empresa.aprovacao === "recusada") {
+    return (
+      <Container>
+        <Message>
+          <FaTimesCircle
+            size={24}
+            style={{ color: "#ef4444", marginBottom: "0.5rem" }}
+          />
+          <p>
+            Seu cadastro foi recusado. Entre em contato com o suporte para mais
+            informações.
+          </p>
+        </Message>
+      </Container>
+    );
+  }
 
   return (
     <Container>
-      <Header>
-        <Title>Minha Dashboard</Title>
-        <ButtonGroup>
+      <Content>
+        <Header>
+          <Title>Dashboard da Empresa</Title>
           <LogoutButton onClick={handleLogout}>
-            <FaSignOutAlt />
-            Sair
+            <FaSignOutAlt /> Sair
           </LogoutButton>
-        </ButtonGroup>
-      </Header>
+        </Header>
 
-      <AnimalsList>
-        <h2 style={{ marginTop: 0, marginBottom: "1.5rem", color: "#1e293b" }}>
-          <FaPaw style={{ marginRight: "0.5rem" }} />
-          Meus Animais Cadastrados
-        </h2>
+        <WelcomeMessage>
+          <FaBuilding size={24} />
+          <h2>Bem-vindo(a), {empresa.nome}</h2>
+        </WelcomeMessage>
 
-        {animals.length > 0 ? (
-          animals.map((animal) => (
-            <AnimalCard
-              key={animal.id}
-              onClick={() => setAnimalSelecionado(animal)}
-            >
-              <AnimalInfo>
-                <AnimalName>
-                  {animal.nome}
-                  {animal.Em_Atendimento && (
-                    <StatusBadge status="Em Atendimento">
-                      Em Atendimento
-                    </StatusBadge>
-                  )}
-                </AnimalName>
-                <AnimalDetails>
-                  {animal.Especie} • {animal.Idade} • {animal.Descricao} •
-                  Cadastrado em: {animal.dataCadastro}
-                </AnimalDetails>
-              </AnimalInfo>
-            </AnimalCard>
-          ))
-        ) : (
-          <p style={{ color: "#64748b", textAlign: "center" }}>
-            Nenhum animal cadastrado ainda.
-          </p>
+        {!loadingOcorrencia && ocorrenciaAtual && (
+          <CurrentOcorrenciaCard>
+            <OcorrenciaTitle>
+              <FaExclamationTriangle /> Ocorrência em Atendimento
+              <StatusBadge>Em Atendimento</StatusBadge>
+            </OcorrenciaTitle>
+
+            <OcorrenciaInfo>
+              <InfoItem>
+                <FaPaw /> <strong>Espécie:</strong>{" "}
+                {ocorrenciaAtual.Especie || "Não informado"}
+              </InfoItem>
+
+              <InfoItem>
+                <FaFirstAid /> <strong>Estado:</strong>{" "}
+                {ocorrenciaAtual.Ferido ? "Animal ferido" : "Animal saudável"}
+              </InfoItem>
+
+              <InfoItem>
+                <FaMapMarkerAlt /> <strong>Localização:</strong>{" "}
+                {ocorrenciaAtual.Endereco || "Local não especificado"}
+              </InfoItem>
+
+              <InfoItem>
+                <FaInfoCircle /> <strong>Descrição:</strong>{" "}
+                {ocorrenciaAtual.Descricao || "Sem descrição adicional"}
+              </InfoItem>
+            </OcorrenciaInfo>
+
+            <FinalizarButton onClick={handleFinalizarAtendimento}>
+              <FaCheckCircle /> Finalizar Atendimento
+            </FinalizarButton>
+
+            <ComunicacaoContainer>
+              <ComunicacaoTitle>
+                <FaComments /> Comunicação com o Usuário
+              </ComunicacaoTitle>
+
+              <MensagemInput
+                value={novaMensagem}
+                onChange={(e) => setNovaMensagem(e.target.value)}
+                placeholder="Digite sua mensagem para o usuário..."
+              />
+              <EnviarButton onClick={enviarMensagem}>
+                Enviar Mensagem
+              </EnviarButton>
+
+              {mensagens.length > 0 && (
+                <MensagensList>
+                  {mensagens.map((msg, index) => (
+                    <MensagemItem key={index}>
+                      <div>
+                        <strong>{msg.enviadoPor}:</strong> {msg.texto}
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                        {new Date(msg.data).toLocaleString()}
+                      </div>
+                    </MensagemItem>
+                  ))}
+                </MensagensList>
+              )}
+            </ComunicacaoContainer>
+          </CurrentOcorrenciaCard>
         )}
-      </AnimalsList>
-     
-      <FooterButtons>
-        <ActionButton onClick={handleRegisterAnimal}>
-          <FaPlus />
-          Cadastrar Animal
-        </ActionButton>
-      </FooterButtons>
 
-      {animalSelecionado && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000
-  }}>
-    <div style={{
-      backgroundColor: 'white',
-      padding: '2rem',
-      borderRadius: '10px',
-      width: '80%',
-      maxWidth: '600px',
-      maxHeight: '80vh',
-      overflowY: 'auto'
-    }}>
-      <h3>{animalSelecionado.nome}</h3>
-      
-      <div style={{ margin: '1rem 0' }}>
-        <p><strong>Espécie:</strong> {animalSelecionado.Especie}</p>
-        <p><strong>Idade:</strong> {animalSelecionado.Idade}</p>
-        <p><strong>Estado:</strong> {animalSelecionado.Ferido ? 'Ferido' : 'Saudável'}</p>
-        <p><strong>Cadastrado em:</strong> {animalSelecionado.dataCadastro}</p>
-        <p><strong>Descrição:</strong> {animalSelecionado.Descricao}</p>
-      </div>
+        <Card>
+          <OcorrenciasButton onClick={() => navigate("/ocorrencias")}>
+            <FaExclamationTriangle /> Acessar Ocorrências
+          </OcorrenciasButton>
 
-      {/* Seção de Comunicação */}
-      <ComunicacaoContainer>
-        <ComunicacaoTitle>
-          <FaComments /> Comunicação com a Empresa
-        </ComunicacaoTitle>
-        
-        {animalSelecionado.Em_Atendimento ? (
-          <>
-            <MensagemInput
-              value={novaMensagem}
-              onChange={(e) => setNovaMensagem(e.target.value)}
-              placeholder="Digite sua mensagem para a empresa..."
-            />
-            <EnviarButton onClick={enviarMensagem}>
-              Enviar Mensagem
-            </EnviarButton>
-            
-            {mensagens.length > 0 ? (
-              <MensagensList>
-                {mensagens.map((msg, index) => (
-                  <MensagemItem key={index}>
-                    <div><strong>{msg.enviadoPor}:</strong> {msg.texto}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      {new Date(msg.data).toLocaleString()}
-                    </div>
-                  </MensagemItem>
-                ))}
-              </MensagensList>
-            ) : (
-              <p style={{ color: '#64748b', textAlign: 'center' }}>
-                Nenhuma mensagem ainda. Envie a primeira mensagem!
-              </p>
-            )}
-          </>
-        ) : (
-          <p style={{ color: '#64748b', textAlign: 'center' }}>
-            <FaExclamationTriangle style={{ marginRight: '0.5rem' }} />
-            Esta ocorrência ainda não está em atendimento por uma empresa.
-          </p>
-        )}
-      </ComunicacaoContainer>
-
-      <button 
-        onClick={() => setAnimalSelecionado(null)}
-        style={{
-          marginTop: '1rem',
-          padding: '0.5rem 1rem',
-          backgroundColor: '#ef4444',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}
-      >
-        Fechar
-      </button>
-    </div>
-  </div>
-)}
+          <OcorrenciasButton
+            style={{
+              backgroundColor: "#059669",
+              boxShadow: "0 4px 14px rgba(5, 150, 105, 0.4)",
+            }}
+            onClick={() => navigate("/ocorrencias-atendidas")}
+          >
+            <FaCheckCircle /> Ocorrências Atendidas
+          </OcorrenciasButton>
+        </Card>
+      </Content>
     </Container>
   );
 };
 
-export default Dashboard;
+export default DashboardEmpresa;
