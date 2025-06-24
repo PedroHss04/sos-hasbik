@@ -270,7 +270,53 @@ const Dashboard = () => {
     } else {
       setMensagens([]);
     }
-  }, [animalSelecionado]);
+
+    // --- INÍCIO DA ADIÇÃO PARA REALTIME ---
+    if (animalSelecionado?.id) {
+      const channel = supabase
+        .channel(`animal_messages_${animalSelecionado.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "Animais",
+            filter: `id=eq.${animalSelecionado.id}`,
+          },
+          (payload) => {
+            if (payload.new.mensagens_empresa) {
+              try {
+                const updatedMsgs = JSON.parse(payload.new.mensagens_empresa);
+                setMensagens(Array.isArray(updatedMsgs) ? updatedMsgs : []);
+                // Opcional: Atualizar o animalSelecionado para refletir a mudança na lista de animais
+                setAnimalSelecionado((prev) => ({
+                  ...prev,
+                  mensagens_empresa: payload.new.mensagens_empresa,
+                }));
+                setAnimals((prevAnimals) =>
+                  prevAnimals.map((animal) =>
+                    animal.id === payload.new.id
+                      ? {
+                          ...animal,
+                          mensagens_empresa: payload.new.mensagens_empresa,
+                        }
+                      : animal
+                  )
+                );
+              } catch (e) {
+                console.error("Erro ao parsear mensagens em tempo real:", e);
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+    // --- FIM DA ADIÇÃO PARA REALTIME ---
+  }, [animalSelecionado]); // Dependência: animalSelecionado
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -303,23 +349,20 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // Atualiza o estado local do animal selecionado
-      const updatedAnimal = {
-        ...animalSelecionado,
-        mensagens_empresa: mensagensString,
-      };
-      setAnimalSelecionado(updatedAnimal);
+      // A atualização do estado local do animal selecionado e da lista de animais
+      // será tratada pelo listener de realtime agora.
+      // setAnimalSelecionado((prev) => ({
+      //   ...prev,
+      //   mensagens_empresa: mensagensString,
+      // }));
+      // setAnimals(
+      //   animals.map((animal) =>
+      //     animal.id === animalSelecionado.id ? { ...animal, mensagens_empresa: mensagensString } : animal
+      //   )
+      // );
 
-      // Atualiza a lista de animais
-      setAnimals(
-        animals.map((animal) =>
-          animal.id === updatedAnimal.id ? updatedAnimal : animal
-        )
-      );
-
-      setMensagens(mensagensAtualizadas);
       setNovaMensagem("");
-      alert("Mensagem enviada com sucesso!");
+      // alert("Mensagem enviada com sucesso!"); // Remova este alert para uma experiência mais fluida
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       alert("Erro ao enviar mensagem. Tente novamente.");

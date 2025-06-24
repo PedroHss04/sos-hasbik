@@ -252,6 +252,20 @@ const MensagemItem = styled.div`
   }
 `;
 
+// Indicador de status de conexão
+const StatusConexao = styled.div`
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background-color: ${(props) => (props.conectado ? "#10b981" : "#ef4444")};
+  color: white;
+  z-index: 1000;
+`;
+
 const DashboardEmpresa = () => {
   const navigate = useNavigate();
   const [empresa, setEmpresa] = useState(null);
@@ -260,6 +274,7 @@ const DashboardEmpresa = () => {
   const [loadingOcorrencia, setLoadingOcorrencia] = useState(true);
   const [novaMensagem, setNovaMensagem] = useState("");
   const [mensagens, setMensagens] = useState([]);
+  const [conexaoRealTime, setConexaoRealTime] = useState(false);
 
   useEffect(() => {
     const checkUserAndFetchData = async () => {
@@ -300,6 +315,66 @@ const DashboardEmpresa = () => {
         }
 
         setOcorrenciaAtual(ocorrenciaData || null);
+
+        // Configurar subscription para real-time updates
+        const setupRealtimeSubscription = () => {
+          const subscription = supabase
+            .channel("empresa-ocorrencias")
+            .on(
+              "postgres_changes",
+              {
+                event: "UPDATE",
+                schema: "public",
+                table: "Animais",
+                filter: `Id_Empresa=eq.${parsedEmpresa.id}`,
+              },
+              (payload) => {
+                console.log("Mudança detectada na ocorrência:", payload);
+
+                // Atualizar ocorrência atual se for a mesma
+                if (ocorrenciaData && payload.new.id === ocorrenciaData.id) {
+                  setOcorrenciaAtual(payload.new);
+                }
+
+                // Se uma nova ocorrência foi atribuída à empresa
+                if (
+                  payload.new.Em_Atendimento &&
+                  payload.new.Id_Empresa === parsedEmpresa.id
+                ) {
+                  setOcorrenciaAtual(payload.new);
+                }
+
+                // Se a ocorrência foi finalizada
+                if (payload.new.finalizado && !payload.new.Em_Atendimento) {
+                  setOcorrenciaAtual(null);
+                }
+              }
+            )
+            .on("presence", { event: "sync" }, () => {
+              setConexaoRealTime(true);
+            })
+            .on("presence", { event: "leave" }, () => {
+              setConexaoRealTime(false);
+            })
+            .subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                setConexaoRealTime(true);
+              } else if (status === "CLOSED") {
+                setConexaoRealTime(false);
+              }
+            });
+
+          return () => {
+            subscription.unsubscribe();
+          };
+        };
+
+        const unsubscribe = setupRealtimeSubscription();
+
+        // Cleanup function
+        return () => {
+          unsubscribe();
+        };
       } catch (err) {
         console.error("Erro ao buscar dados:", err);
       } finally {
@@ -308,7 +383,13 @@ const DashboardEmpresa = () => {
       }
     };
 
-    checkUserAndFetchData();
+    const cleanup = checkUserAndFetchData();
+
+    return () => {
+      if (cleanup && typeof cleanup === "function") {
+        cleanup();
+      }
+    };
   }, [navigate]);
 
   // Carrega as mensagens quando a ocorrência atual muda
@@ -317,6 +398,14 @@ const DashboardEmpresa = () => {
       try {
         const msgs = JSON.parse(ocorrenciaAtual.mensagens_empresa);
         setMensagens(Array.isArray(msgs) ? msgs : []);
+
+        // Auto-scroll para a última mensagem
+        setTimeout(() => {
+          const mensagensList = document.querySelector("[data-mensagens-list]");
+          if (mensagensList) {
+            mensagensList.scrollTop = mensagensList.scrollHeight;
+          }
+        }, 100);
       } catch {
         setMensagens([]);
       }
@@ -332,6 +421,10 @@ const DashboardEmpresa = () => {
   };
 
   const handleFinalizarAtendimento = async () => {
+    if (!window.confirm("Tem certeza que deseja finalizar este atendimento?")) {
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("Animais")
@@ -343,7 +436,7 @@ const DashboardEmpresa = () => {
 
       if (error) throw error;
 
-      setOcorrenciaAtual(null);
+      // O estado será atualizado automaticamente via subscription
       alert("Atendimento finalizado com sucesso!");
     } catch (error) {
       console.error("Erro ao finalizar atendimento:", error);
@@ -373,12 +466,31 @@ const DashboardEmpresa = () => {
 
       if (error) throw error;
 
-      setMensagens(mensagensAtualizadas);
+      // O estado será atualizado automaticamente via subscription
       setNovaMensagem("");
-      alert("Mensagem enviada com sucesso!");
+
+      // Mostrar feedback visual
+      const button = document.querySelector("[data-enviar-btn]");
+      if (button) {
+        const originalText = button.textContent;
+        button.textContent = "Enviado!";
+        button.style.backgroundColor = "#10b981";
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.backgroundColor = "#3b82f6";
+        }, 2000);
+      }
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       alert("Erro ao enviar mensagem. Tente novamente.");
+    }
+  };
+
+  // Função para lidar com Enter no textarea
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      enviarMensagem();
     }
   };
 
@@ -388,6 +500,9 @@ const DashboardEmpresa = () => {
   if (empresa.aprovacao === "pendente") {
     return (
       <Container>
+        <StatusConexao conectado={conexaoRealTime}>
+          {conexaoRealTime ? "Conectado" : "Desconectado"}
+        </StatusConexao>
         <Message>
           <FaClock
             size={24}
@@ -405,6 +520,9 @@ const DashboardEmpresa = () => {
   if (empresa.aprovacao === "recusada") {
     return (
       <Container>
+        <StatusConexao conectado={conexaoRealTime}>
+          {conexaoRealTime ? "Conectado" : "Desconectado"}
+        </StatusConexao>
         <Message>
           <FaTimesCircle
             size={24}
@@ -421,6 +539,10 @@ const DashboardEmpresa = () => {
 
   return (
     <Container>
+      <StatusConexao conectado={conexaoRealTime}>
+        {conexaoRealTime ? "Tempo Real Ativo" : "Reconectando..."}
+      </StatusConexao>
+
       <Content>
         <Header>
           <Title>Dashboard da Empresa</Title>
@@ -475,18 +597,27 @@ const DashboardEmpresa = () => {
               <MensagemInput
                 value={novaMensagem}
                 onChange={(e) => setNovaMensagem(e.target.value)}
-                placeholder="Digite sua mensagem para o usuário..."
+                onKeyPress={handleKeyPress}
+                placeholder="Digite sua mensagem para o usuário... (Enter para enviar, Shift+Enter para nova linha)"
               />
-              <EnviarButton onClick={enviarMensagem}>
+              <EnviarButton onClick={enviarMensagem} data-enviar-btn>
                 Enviar Mensagem
               </EnviarButton>
 
               {mensagens.length > 0 && (
-                <MensagensList>
+                <MensagensList data-mensagens-list>
                   {mensagens.map((msg, index) => (
                     <MensagemItem key={index}>
                       <div>
-                        <strong>{msg.enviadoPor}:</strong> {msg.texto}
+                        <strong
+                          style={{
+                            color:
+                              msg.tipo === "empresa" ? "#3b82f6" : "#059669",
+                          }}
+                        >
+                          {msg.enviadoPor}:
+                        </strong>{" "}
+                        {msg.texto}
                       </div>
                       <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
                         {new Date(msg.data).toLocaleString()}
