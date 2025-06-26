@@ -9,84 +9,98 @@ import {
   FaCheckCircle,
   FaExclamationTriangle,
   FaCheckSquare,
+  FaUser,
+  FaMapMarkerAlt,
+  FaClock,
 } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
-import DetalhesAnimal from "../detalhesAnimal/DetalhesAnimal";
-import { FaCheckDouble } from "react-icons/fa6";
+import { theme } from "../../styles/theme";
+import { Container, Card, Grid } from "../../components/ui/Layout";
+import { Button } from "../../components/ui/Button";
+import { Modal } from "../../components/ui/Modal";
+import { Alert } from "../../components/ui/Alert";
 
-const Container = styled.div`
-  padding: 1rem;
-  max-width: 1200px;
-  margin: 0 auto;
+const PageContainer = styled(Container)`
+  min-height: 100vh;
+  background: ${theme.gradients.background};
+  padding: ${theme.spacing.lg};
 `;
 
 const Header = styled.div`
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  margin-bottom: 2rem;
-  background-color: #4f46e5;
-  border-radius: 10px;
+  padding: ${theme.spacing.lg};
+  margin-bottom: ${theme.spacing.xl};
+  background: ${theme.colors.primary[600]};
+  border-radius: ${theme.borderRadius.lg};
   color: white;
-  position: relative;
+  box-shadow: ${theme.shadows.lg};
 `;
 
 const Title = styled.h1`
-  margin: 0;
-  font-size: 1.8rem;
+  font-family: ${theme.fonts.heading};
+  font-size: ${theme.fontSizes.xl};
   font-weight: 600;
-  text-align: center;
-`;
-
-const ButtonGroup = styled.div`
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-`;
-
-const LogoutButton = styled.button`
+  margin: 0;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 1.2rem;
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background 0.2s;
-
-  &:hover {
-    background: #dc2626;
-  }
+  gap: ${theme.spacing.md};
 `;
 
-const AnimalsList = styled.div`
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem;
-  margin-bottom: 2rem;
+const WelcomeCard = styled(Card)`
+  text-align: center;
+  padding: ${theme.spacing.xl};
+  margin-bottom: ${theme.spacing.xl};
+  background: ${theme.gradients.primary};
+  color: white;
+`;
+
+const WelcomeTitle = styled.h2`
+  font-family: ${theme.fonts.heading};
+  font-size: ${theme.fontSizes.lg};
+  margin: 0 0 ${theme.spacing.sm} 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${theme.spacing.md};
+`;
+
+const AnimalsSection = styled(Card)`
+  padding: ${theme.spacing.xl};
+  margin-bottom: ${theme.spacing.xl};
+`;
+
+const SectionTitle = styled.h2`
+  font-family: ${theme.fonts.heading};
+  font-size: ${theme.fontSizes.lg};
+  font-weight: 600;
+  color: ${theme.colors.gray[800]};
+  margin: 0 0 ${theme.spacing.lg} 0;
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.md};
 `;
 
 const AnimalCard = styled.div`
-  padding: 1.2rem;
-  border-bottom: 1px solid #e2e8f0;
+  padding: ${theme.spacing.lg};
+  border-bottom: 1px solid ${theme.colors.gray[200]};
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: ${theme.borderRadius.md};
+  margin-bottom: ${theme.spacing.sm};
 
   &:last-child {
     border-bottom: none;
+    margin-bottom: 0;
   }
 
   &:hover {
-    background: #f9fafb;
+    background: ${theme.colors.gray[50]};
+    transform: translateY(-1px);
   }
 `;
 
@@ -95,128 +109,149 @@ const AnimalInfo = styled.div`
 `;
 
 const AnimalName = styled.h3`
-  margin: 0 0 0.5rem 0;
-  color: #1e293b;
+  margin: 0 0 ${theme.spacing.sm} 0;
+  color: ${theme.colors.gray[800]};
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.sm};
 `;
 
 const AnimalDetails = styled.p`
   margin: 0;
-  color: #64748b;
-  font-size: 0.9rem;
+  color: ${theme.colors.gray[600]};
+  font-size: ${theme.fontSizes.sm};
+  display: flex;
+  align-items: center;
+  gap: ${theme.spacing.lg};
 `;
 
 const StatusBadge = styled.span`
-  padding: 0.3rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  padding: ${theme.spacing.xs} ${theme.spacing.sm};
+  border-radius: ${theme.borderRadius.full};
+  font-size: ${theme.fontSizes.xs};
   font-weight: 500;
-  background-color: ${(props) =>
-    props.status === "Em Atendimento"
-      ? "#3b82f6"
-      : props.status === "Finalizado"
-      ? "#4F46E5"
-      : "#10b981"};
-  color: white;
-  margin-left: 1rem;
+  background-color: ${(props) => {
+    switch (props.status) {
+      case "Em Atendimento":
+        return theme.colors.primary[100];
+      case "Finalizado":
+        return theme.colors.success[100];
+      default:
+        return theme.colors.warning[100];
+    }
+  }};
+  color: ${(props) => {
+    switch (props.status) {
+      case "Em Atendimento":
+        return theme.colors.primary[800];
+      case "Finalizado":
+        return theme.colors.success[800];
+      default:
+        return theme.colors.warning[800];
+    }
+  }};
+  margin-left: ${theme.spacing.md};
 `;
 
-const FooterButtons = styled.div`
+const ActionButtons = styled.div`
   display: flex;
-  gap: 1rem;
+  gap: ${theme.spacing.md};
   justify-content: center;
-  margin-top: 1.5rem;
+  margin-top: ${theme.spacing.xl};
 `;
 
-const ActionButton = styled.button`
+const CommunicationSection = styled.div`
+  margin-top: ${theme.spacing.xl};
+  padding: ${theme.spacing.lg};
+  background: ${theme.colors.gray[50]};
+  border-radius: ${theme.borderRadius.lg};
+  border: 1px solid ${theme.colors.gray[200]};
+`;
+
+const CommunicationTitle = styled.h4`
+  margin: 0 0 ${theme.spacing.md} 0;
+  color: ${theme.colors.gray[800]};
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 1.5rem;
-  background: ${(props) => (props.primary ? "#4f46e5" : "#10b981")};
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: all 0.2s;
-
-  &:hover {
-    background: ${(props) => (props.primary ? "#4338ca" : "#059669")};
-    transform: translateY(-2px);
-  }
+  gap: ${theme.spacing.sm};
+  font-weight: 600;
 `;
 
-// Estilos para a comunicação
-const ComunicacaoContainer = styled.div`
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-`;
-
-const ComunicacaoTitle = styled.h4`
-  margin: 0 0 0.5rem 0;
-  color: #1e293b;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`;
-
-const MensagemInput = styled.textarea`
+const MessageInput = styled.textarea`
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: ${theme.spacing.md};
+  border: 1px solid ${theme.colors.gray[300]};
+  border-radius: ${theme.borderRadius.md};
+  font-size: ${theme.fontSizes.sm};
   resize: vertical;
   min-height: 80px;
-  margin-bottom: 0.5rem;
-`;
+  margin-bottom: ${theme.spacing.md};
+  font-family: ${theme.fonts.body};
 
-const EnviarButton = styled.button`
-  padding: 0.5rem 1rem;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.3s ease;
-
-  &:hover {
-    background-color: #2563eb;
+  &:focus {
+    outline: none;
+    border-color: ${theme.colors.primary[400]};
+    box-shadow: 0 0 0 3px ${theme.colors.primary[100]};
   }
 `;
 
-const MensagensList = styled.div`
-  margin-top: 1rem;
-  max-height: 200px;
+const MessagesList = styled.div`
+  margin-top: ${theme.spacing.lg};
+  max-height: 300px;
   overflow-y: auto;
 `;
 
-const MensagemItem = styled.div`
-  padding: 0.5rem;
-  margin-bottom: 0.5rem;
-  background: #ffffff;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  font-size: 0.9rem;
+const MessageItem = styled.div`
+  padding: ${theme.spacing.md};
+  margin-bottom: ${theme.spacing.sm};
+  background: ${theme.colors.white};
+  border-radius: ${theme.borderRadius.md};
+  border: 1px solid ${theme.colors.gray[200]};
+  font-size: ${theme.fontSizes.sm};
 
   &:last-child {
     margin-bottom: 0;
   }
 `;
 
+const MessageHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: ${theme.spacing.xs};
+`;
+
+const MessageAuthor = styled.strong`
+  color: ${props => props.isUser ? theme.colors.primary[600] : theme.colors.success[600]};
+  font-weight: 600;
+`;
+
+const MessageTime = styled.span`
+  font-size: ${theme.fontSizes.xs};
+  color: ${theme.colors.gray[500]};
+`;
+
+const MessageText = styled.p`
+  margin: 0;
+  color: ${theme.colors.gray[700]};
+  line-height: 1.5;
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: ${theme.spacing.xl};
+  color: ${theme.colors.gray[500]};
+`;
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [userType, setUserType] = useState("");
   const [animals, setAnimals] = useState([]);
   const [animalSelecionado, setAnimalSelecionado] = useState(null);
   const [novaMensagem, setNovaMensagem] = useState("");
   const [mensagens, setMensagens] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -229,7 +264,6 @@ const Dashboard = () => {
 
     const parsedUser = JSON.parse(storedUser);
     setUser(parsedUser);
-    setUserType(storedUserType);
 
     const fetchAnimals = async () => {
       const userId = parsedUser.id;
@@ -258,7 +292,6 @@ const Dashboard = () => {
     fetchAnimals();
   }, [navigate]);
 
-  // Carrega as mensagens quando um animal é selecionado
   useEffect(() => {
     if (animalSelecionado?.mensagens_empresa) {
       try {
@@ -271,7 +304,6 @@ const Dashboard = () => {
       setMensagens([]);
     }
 
-    // --- INÍCIO DA ADIÇÃO PARA REALTIME ---
     if (animalSelecionado?.id) {
       const channel = supabase
         .channel(`animal_messages_${animalSelecionado.id}`)
@@ -288,7 +320,6 @@ const Dashboard = () => {
               try {
                 const updatedMsgs = JSON.parse(payload.new.mensagens_empresa);
                 setMensagens(Array.isArray(updatedMsgs) ? updatedMsgs : []);
-                // Opcional: Atualizar o animalSelecionado para refletir a mudança na lista de animais
                 setAnimalSelecionado((prev) => ({
                   ...prev,
                   mensagens_empresa: payload.new.mensagens_empresa,
@@ -315,8 +346,7 @@ const Dashboard = () => {
         supabase.removeChannel(channel);
       };
     }
-    // --- FIM DA ADIÇÃO PARA REALTIME ---
-  }, [animalSelecionado]); // Dependência: animalSelecionado
+  }, [animalSelecionado]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -326,6 +356,11 @@ const Dashboard = () => {
 
   const handleRegisterAnimal = () => {
     navigate("/cadastro_animal");
+  };
+
+  const handleAnimalClick = (animal) => {
+    setAnimalSelecionado(animal);
+    setIsModalOpen(true);
   };
 
   const enviarMensagem = async () => {
@@ -349,20 +384,7 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // A atualização do estado local do animal selecionado e da lista de animais
-      // será tratada pelo listener de realtime agora.
-      // setAnimalSelecionado((prev) => ({
-      //   ...prev,
-      //   mensagens_empresa: mensagensString,
-      // }));
-      // setAnimals(
-      //   animals.map((animal) =>
-      //     animal.id === animalSelecionado.id ? { ...animal, mensagens_empresa: mensagensString } : animal
-      //   )
-      // );
-
       setNovaMensagem("");
-      // alert("Mensagem enviada com sucesso!"); // Remova este alert para uma experiência mais fluida
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       alert("Erro ao enviar mensagem. Tente novamente.");
@@ -372,32 +394,41 @@ const Dashboard = () => {
   if (!user) return null;
 
   return (
-    <Container>
+    <PageContainer>
       <Header>
-        <Title>Minha Dashboard</Title>
-        <ButtonGroup>
-          <LogoutButton onClick={handleLogout}>
-            <FaSignOutAlt />
-            Sair
-          </LogoutButton>
-        </ButtonGroup>
+        <Title>
+          <FaUser />
+          Minha Dashboard
+        </Title>
+        <Button variant="danger" onClick={handleLogout}>
+          <FaSignOutAlt />
+          Sair
+        </Button>
       </Header>
 
-      <AnimalsList>
-        <h2 style={{ marginTop: 0, marginBottom: "1.5rem", color: "#1e293b" }}>
-          <FaPaw style={{ marginRight: "0.5rem" }} />
-          Meus Animais Cadastrados
-        </h2>
+      <WelcomeCard>
+        <WelcomeTitle>
+          <FaPaw />
+          Bem-vindo(a), {user.nome}!
+        </WelcomeTitle>
+        <p>Obrigado por ajudar os animais que precisam de cuidado.</p>
+      </WelcomeCard>
+
+      <AnimalsSection>
+        <SectionTitle>
+          <FaPaw />
+          Meus Animais Reportados
+        </SectionTitle>
 
         {animals.length > 0 ? (
           animals.map((animal) => (
             <AnimalCard
               key={animal.id}
-              onClick={() => setAnimalSelecionado(animal)}
+              onClick={() => handleAnimalClick(animal)}
             >
               <AnimalInfo>
                 <AnimalName>
-                  {animal.nome}
+                  🐾 {animal.nome}
                   {animal.Em_Atendimento && (
                     <StatusBadge status="Em Atendimento">
                       Em Atendimento
@@ -405,166 +436,127 @@ const Dashboard = () => {
                   )}
                   {animal.finalizado && (
                     <StatusBadge status="Finalizado">
-                      Atendimento finalizado
+                      Finalizado
                     </StatusBadge>
                   )}
                 </AnimalName>
                 <AnimalDetails>
-                  {animal.Especie} • {animal.Idade} • {animal.Descricao} •
-                  Cadastrado em: {animal.dataCadastro}
+                  <span><strong>Espécie:</strong> {animal.Especie}</span>
+                  <span><strong>Idade:</strong> {animal.Idade}</span>
+                  <span><FaMapMarkerAlt /> {animal.Endereco}</span>
+                  <span><FaClock /> {animal.dataCadastro}</span>
                 </AnimalDetails>
               </AnimalInfo>
             </AnimalCard>
           ))
         ) : (
-          <p style={{ color: "#64748b", textAlign: "center" }}>
-            Nenhum animal cadastrado ainda.
-          </p>
+          <EmptyState>
+            <FaPaw size={48} style={{ marginBottom: theme.spacing.md, opacity: 0.5 }} />
+            <p>Você ainda não reportou nenhum animal.</p>
+            <p>Clique no botão abaixo para reportar um animal que precisa de ajuda.</p>
+          </EmptyState>
         )}
-      </AnimalsList>
+      </AnimalsSection>
 
-      <FooterButtons>
-        <ActionButton
-          primary
-          onClick={() => alert("Funcionalidade em desenvolvimento")}
-        >
-          <FaPaw />
-          Ver Todos
-        </ActionButton>
-        <ActionButton onClick={handleRegisterAnimal}>
+      <ActionButtons>
+        <Button onClick={handleRegisterAnimal}>
           <FaPlus />
-          Cadastrar Animal
-        </ActionButton>
-      </FooterButtons>
+          Reportar Animal
+        </Button>
+      </ActionButtons>
 
-      {animalSelecionado && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "2rem",
-              borderRadius: "10px",
-              width: "80%",
-              maxWidth: "600px",
-              maxHeight: "80vh",
-              overflowY: "auto",
-            }}
-          >
-            <h3>{animalSelecionado.nome}</h3>
-
-            <div style={{ margin: "1rem 0" }}>
-              <p>
-                <strong>Espécie:</strong> {animalSelecionado.Especie}
-              </p>
-              <p>
-                <strong>Idade:</strong> {animalSelecionado.Idade}
-              </p>
-              <p>
-                <strong>Estado:</strong>{" "}
-                {animalSelecionado.Ferido ? "Ferido" : "Saudável"}
-              </p>
-              <p>
-                <strong>Cadastrado em:</strong> {animalSelecionado.dataCadastro}
-              </p>
-              <p>
-                <strong>Descrição:</strong> {animalSelecionado.Descricao}
-              </p>
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={`🐾 ${animalSelecionado?.nome || 'Animal'}`}
+      >
+        {animalSelecionado && (
+          <div>
+            <div style={{ marginBottom: theme.spacing.lg }}>
+              <p><strong>Espécie:</strong> {animalSelecionado.Especie}</p>
+              <p><strong>Idade:</strong> {animalSelecionado.Idade}</p>
+              <p><strong>Estado:</strong> {animalSelecionado.Ferido ? "🚨 Ferido" : "✅ Saudável"}</p>
+              <p><strong>Local:</strong> {animalSelecionado.Endereco}</p>
+              <p><strong>Reportado em:</strong> {animalSelecionado.dataCadastro}</p>
+              {animalSelecionado.Descricao && (
+                <p><strong>Descrição:</strong> {animalSelecionado.Descricao}</p>
+              )}
             </div>
 
-            {/* Seção de Comunicação */}
-            <ComunicacaoContainer>
-              <ComunicacaoTitle>
-                <FaComments /> Comunicação com a Empresa
-              </ComunicacaoTitle>
+            <CommunicationSection>
+              <CommunicationTitle>
+                <FaComments />
+                Comunicação com a ONG
+              </CommunicationTitle>
 
               {animalSelecionado.Em_Atendimento ? (
                 <>
-                  <MensagemInput
+                  <MessageInput
                     value={novaMensagem}
                     onChange={(e) => setNovaMensagem(e.target.value)}
-                    placeholder="Digite sua mensagem para a empresa..."
+                    placeholder="Digite sua mensagem para a ONG..."
                   />
-                  <EnviarButton onClick={enviarMensagem}>
+                  <Button onClick={enviarMensagem} disabled={!novaMensagem.trim()}>
                     Enviar Mensagem
-                  </EnviarButton>
+                  </Button>
 
                   {mensagens.length > 0 ? (
-                    <MensagensList>
+                    <MessagesList>
                       {mensagens.map((msg, index) => (
-                        <MensagemItem key={index}>
-                          <div>
-                            <strong>{msg.enviadoPor}:</strong> {msg.texto}
-                          </div>
-                          <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                            {new Date(msg.data).toLocaleString()}
-                          </div>
-                        </MensagemItem>
+                        <MessageItem key={index}>
+                          <MessageHeader>
+                            <MessageAuthor isUser={msg.tipo === "usuario"}>
+                              {msg.enviadoPor}
+                            </MessageAuthor>
+                            <MessageTime>
+                              {new Date(msg.data).toLocaleString()}
+                            </MessageTime>
+                          </MessageHeader>
+                          <MessageText>{msg.texto}</MessageText>
+                        </MessageItem>
                       ))}
-                    </MensagensList>
+                    </MessagesList>
                   ) : (
-                    <p style={{ color: "#64748b", textAlign: "center" }}>
+                    <Alert type="info">
                       Nenhuma mensagem ainda. Envie a primeira mensagem!
-                    </p>
+                    </Alert>
                   )}
                 </>
               ) : animalSelecionado.finalizado ? (
                 <>
-                  <p style={{ color: "#64748b", textAlign: "center" }}>
-                    <FaCheckSquare style={{ marginRight: "0.5rem" }} />
-                    Atendimento concluído.
-                  </p>
-                  <MensagensList>
-                    {mensagens.map((msg, index) => (
-                      <MensagemItem key={index}>
-                        <div>
-                          <strong>{msg.enviadoPor}:</strong> {msg.texto}
-                        </div>
-                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                          {new Date(msg.data).toLocaleString()}
-                        </div>
-                      </MensagemItem>
-                    ))}
-                  </MensagensList>
+                  <Alert type="success">
+                    <FaCheckSquare style={{ marginRight: theme.spacing.sm }} />
+                    Atendimento concluído com sucesso!
+                  </Alert>
+                  {mensagens.length > 0 && (
+                    <MessagesList>
+                      {mensagens.map((msg, index) => (
+                        <MessageItem key={index}>
+                          <MessageHeader>
+                            <MessageAuthor isUser={msg.tipo === "usuario"}>
+                              {msg.enviadoPor}
+                            </MessageAuthor>
+                            <MessageTime>
+                              {new Date(msg.data).toLocaleString()}
+                            </MessageTime>
+                          </MessageHeader>
+                          <MessageText>{msg.texto}</MessageText>
+                        </MessageItem>
+                      ))}
+                    </MessagesList>
+                  )}
                 </>
               ) : (
-                <p style={{ color: "#64748b", textAlign: "center" }}>
-                  <FaExclamationTriangle style={{ marginRight: "0.5rem" }} />
-                  Esta ocorrência ainda não está em atendimento por uma empresa.
-                </p>
+                <Alert type="warning">
+                  <FaExclamationTriangle style={{ marginRight: theme.spacing.sm }} />
+                  Este animal ainda não está sendo atendido por uma ONG.
+                </Alert>
               )}
-            </ComunicacaoContainer>
-
-            <button
-              onClick={() => setAnimalSelecionado(null)}
-              style={{
-                marginTop: "1rem",
-                padding: "0.5rem 1rem",
-                backgroundColor: "#ef4444",
-                color: "white",
-                border: "none",
-                borderRadius: "5px",
-                cursor: "pointer",
-              }}
-            >
-              Fechar
-            </button>
+            </CommunicationSection>
           </div>
-        </div>
-      )}
-    </Container>
+        )}
+      </Modal>
+    </PageContainer>
   );
 };
 

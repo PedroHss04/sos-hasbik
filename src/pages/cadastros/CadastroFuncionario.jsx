@@ -2,62 +2,51 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import FormGroup from "../../geral-components/FormGroup";
-import SelectGroup from "./components/SelectGroup";
-import { Button } from "../../geral-components/Button";
 import { FaUserPlus, FaArrowLeft } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 import { hashPassword } from "../../utils/passwordUtils";
 import { cadastroCidadaoSchema } from "../../utils/validationSchemas";
+import { theme } from "../../styles/theme";
+import { Container, Card } from "../../components/ui/Layout";
+import { Button } from "../../components/ui/Button";
+import { Input, Select } from "../../components/ui/Input";
+import { FormGroup, FormRow } from "../../components/ui/FormComponents";
+import { Alert } from "../../components/ui/Alert";
 
-const Container = styled.div`
-  width: 100%;
+const PageContainer = styled(Container)`
   min-height: 100vh;
+  background: ${theme.gradients.background};
+  padding: ${theme.spacing.xl};
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: linear-gradient(to right, #f0f2f5, #e1e6e8);
-  padding: 2rem;
+  justify-content: center;
 `;
 
-const FormWrapper = styled.div`
-  background: #fff;
-  padding: 2rem;
-  border-radius: 8px;
+const FormCard = styled(Card)`
   width: 100%;
-  max-width: 500px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  padding: ${theme.spacing.xl};
 `;
 
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: ${theme.spacing.xl};
 `;
 
-const Title = styled.h2`
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: #374151;
-`;
-
-const BackButton = styled.button`
+const Title = styled.h1`
+  font-family: ${theme.fonts.heading};
+  font-size: ${theme.fontSizes.xl};
+  font-weight: 600;
+  color: ${theme.colors.primary[800]};
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  background-color: #4b5563;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-  margin-bottom: 1rem;
+  gap: ${theme.spacing.md};
+`;
 
-  &:hover {
-    background-color: #374151;
-  }
+const BackButton = styled(Button)`
+  margin-bottom: ${theme.spacing.lg};
 `;
 
 const CadastroFuncionario = () => {
@@ -81,7 +70,6 @@ const CadastroFuncionario = () => {
     senha: "",
   });
 
-  // Buscar estados do Brasil (IBGE)
   useEffect(() => {
     axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
       .then((res) => {
@@ -93,14 +81,12 @@ const CadastroFuncionario = () => {
       });
   }, []);
 
-  // Buscar cidades com base no estado selecionado
   useEffect(() => {
     if (!form.estado) {
       setCidades([]);
       return;
     }
 
-    // Buscar o ID do estado a partir da sigla
     axios.get("https://servicodados.ibge.gov.br/api/v1/localidades/estados")
       .then((resEstados) => {
         const estadoEncontrado = resEstados.data.find(e => e.sigla === form.estado);
@@ -152,7 +138,7 @@ const CadastroFuncionario = () => {
 
       if (error) {
         console.error("Erro ao buscar dados da empresa:", error);
-        setMensagem({ texto: "Erro ao carregar dados da empresa.", tipo: "erro" });
+        setMensagem({ texto: "Erro ao carregar dados da empresa.", tipo: "error" });
         return;
       }
 
@@ -162,9 +148,47 @@ const CadastroFuncionario = () => {
     getEmpresaLogada();
   }, [navigate]);
 
+  const formatarCPF = (valor) => {
+    return valor
+      .replace(/\D/g, "")
+      .slice(0, 11)
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  };
+
+  const formatarTelefone = (valor) => {
+    const numeros = valor.replace(/\D/g, "").slice(0, 11);
+    if (numeros.length <= 10) {
+      return numeros.replace(/^(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
+    }
+    return numeros.replace(/^(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3");
+  };
+
+  const formatarCEP = (valor) => {
+    return valor
+      .replace(/\D/g, "")
+      .slice(0, 8)
+      .replace(/^(\d{5})(\d)/, "$1-$2");
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    let novoValor = value;
+
+    if (name === "cpf") {
+      novoValor = formatarCPF(value);
+    }
+
+    if (name === "telefone") {
+      novoValor = formatarTelefone(value);
+    }
+
+    if (name === "cep") {
+      novoValor = formatarCEP(value);
+    }
+
+    setForm((prev) => ({ ...prev, [name]: novoValor }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -177,13 +201,23 @@ const CadastroFuncionario = () => {
     setErrors({});
 
     if (empresaLogada?.aprovacao !== "aprovada") {
-      setMensagem({ texto: "Sua empresa precisa ser aprovada para cadastrar funcionários.", tipo: "alerta" });
+      setMensagem({ 
+        texto: "Sua empresa precisa ser aprovada para cadastrar funcionários.", 
+        tipo: "warning" 
+      });
       setIsSubmitting(false);
       return;
     }
 
     try {
-      const validatedData = cadastroCidadaoSchema.parse(form);
+      const formSemMascara = {
+        ...form,
+        cpf: form.cpf.replace(/\D/g, ""),
+        telefone: form.telefone.replace(/\D/g, ""),
+        cep: form.cep.replace(/\D/g, ""),
+      };
+
+      const validatedData = cadastroCidadaoSchema.parse(formSemMascara);
 
       const funcionarioData = {
         ...validatedData,
@@ -200,7 +234,11 @@ const CadastroFuncionario = () => {
 
       if (error) throw error;
 
-      setMensagem({ texto: "✅ Funcionário cadastrado com sucesso!", tipo: "sucesso" });
+      setMensagem({ 
+        texto: "✅ Funcionário cadastrado com sucesso!", 
+        tipo: "success" 
+      });
+      
       event.target.reset();
       setForm({
         nome: "",
@@ -223,7 +261,10 @@ const CadastroFuncionario = () => {
         });
         setErrors(validationErrors);
       } else {
-        setMensagem({ texto: "❌ Erro no cadastro: " + error.message, tipo: "erro" });
+        setMensagem({ 
+          texto: "❌ Erro no cadastro: " + error.message, 
+          tipo: "error" 
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -232,162 +273,201 @@ const CadastroFuncionario = () => {
 
   if (!empresaLogada) {
     return (
-      <Container>
-        <FormWrapper>
-          <BackButton onClick={() => navigate("/dashboard-empresa")}>
+      <PageContainer>
+        <FormCard>
+          <BackButton variant="secondary" onClick={() => navigate("/dashboard_empresa")}>
             <FaArrowLeft />
             Voltar para o Dashboard
           </BackButton>
           <Title>Cadastro de Funcionário</Title>
           {mensagem.texto && (
-            <div
-              style={{
-                color: mensagem.tipo === "sucesso" ? "green" : "red",
-                marginBottom: "1rem",
-              }}
-            >
+            <Alert type={mensagem.tipo} style={{ marginBottom: theme.spacing.lg }}>
               {mensagem.texto}
-            </div>
+            </Alert>
           )}
           <p>Carregando dados da empresa...</p>
-        </FormWrapper>
-      </Container>
+        </FormCard>
+      </PageContainer>
     );
   }
 
   if (empresaLogada.aprovacao !== "aprovada") {
     return (
-      <Container>
-        <FormWrapper>
-          <BackButton onClick={() => navigate("/dashboard-empresa")}>
+      <PageContainer>
+        <FormCard>
+          <BackButton variant="secondary" onClick={() => navigate("/dashboard_empresa")}>
             <FaArrowLeft />
             Voltar para o Dashboard
           </BackButton>
           <Title>Cadastro de Funcionário</Title>
-          {mensagem.texto && (
-            <div
-              style={{
-                color: mensagem.tipo === "sucesso" ? "green" : "red",
-                marginBottom: "1rem",
-              }}
-            >
-              {mensagem.texto}
-            </div>
-          )}
-          <p>Sua empresa precisa ser aprovada para cadastrar funcionários.</p>
-        </FormWrapper>
-      </Container>
+          <Alert type="warning" style={{ marginTop: theme.spacing.lg }}>
+            Sua empresa precisa ser aprovada para cadastrar funcionários.
+          </Alert>
+        </FormCard>
+      </PageContainer>
     );
   }
 
   return (
-    <Container>
-      <FormWrapper>
-        <BackButton onClick={() => navigate("/dashboard_empresa")}>
+    <PageContainer>
+      <FormCard>
+        <BackButton variant="secondary" onClick={() => navigate("/dashboard_empresa")}>
           <FaArrowLeft />
           Voltar para o Dashboard
         </BackButton>
+
         <Header>
-          <Title>Cadastro de Funcionário</Title>
-          <FaUserPlus size={32} color="#4a5568" />
+          <Title>
+            <FaUserPlus />
+            Cadastro de Funcionário
+          </Title>
         </Header>
+
         {mensagem.texto && (
-          <div
-            style={{
-              color: mensagem.tipo === "sucesso" ? "green" : "red",
-              marginBottom: "1rem",
-            }}
-          >
+          <Alert type={mensagem.tipo} style={{ marginBottom: theme.spacing.lg }}>
             {mensagem.texto}
-          </div>
+          </Alert>
         )}
+
         <form onSubmit={handleSubmit}>
-          <FormGroup
-            label="Nome"
-            name="nome"
-            value={form.nome}
-            onChange={handleChange}
-            error={errors.nome}
-            required
-          />
-          <FormGroup
-            label="CPF"
-            name="cpf"
-            value={form.cpf}
-            onChange={handleChange}
-            error={errors.cpf}
-            required
-          />
-          <FormGroup
-            label="Senha"
-            name="senha"
-            type="password"
-            value={form.senha}
-            onChange={handleChange}
-            error={errors.senha}
-            required
-          />
-          <FormGroup
-            label="Email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            error={errors.email}
-            required
-          />
-          <FormGroup
-            label="Telefone"
-            name="telefone"
-            value={form.telefone}
-            onChange={handleChange}
-            error={errors.telefone}
-            required
-          />
+          <FormGroup>
+            <Input
+              label="Nome Completo"
+              name="nome"
+              value={form.nome}
+              onChange={handleChange}
+              error={errors.nome}
+              required
+              placeholder="Digite o nome completo"
+            />
+          </FormGroup>
 
-          <SelectGroup
-            label="Estado"
-            name="estado"
-            value={form.estado}
-            onChange={handleChange}
-            error={errors.estado}
-            options={estados}
-            required
-          />
-          <SelectGroup
-            label="Cidade"
-            name="cidade"
-            value={form.cidade}
-            onChange={handleChange}
-            error={errors.cidade}
-            options={cidades}
-            required
-            disabled={!form.estado}
-          />
+          <FormRow>
+            <FormGroup>
+              <Input
+                label="CPF"
+                name="cpf"
+                value={form.cpf}
+                onChange={handleChange}
+                error={errors.cpf}
+                required
+                placeholder="000.000.000-00"
+              />
+            </FormGroup>
+            <FormGroup>
+              <Input
+                label="Telefone"
+                name="telefone"
+                value={form.telefone}
+                onChange={handleChange}
+                error={errors.telefone}
+                required
+                placeholder="(00) 00000-0000"
+              />
+            </FormGroup>
+          </FormRow>
 
-          <FormGroup
-            label="CEP"
-            name="cep"
-            value={form.cep}
-            onChange={handleChange}
-            error={errors.cep}
-            required
-          />
-          <FormGroup
-            label="Endereço"
-            name="endereco"
-            value={form.endereco}
-            onChange={handleChange}
-            error={errors.endereco}
-            required
-          />
+          <FormRow>
+            <FormGroup>
+              <Input
+                label="Email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                error={errors.email}
+                required
+                placeholder="funcionario@exemplo.com"
+              />
+            </FormGroup>
+            <FormGroup>
+              <Input
+                label="Senha"
+                name="senha"
+                type="password"
+                value={form.senha}
+                onChange={handleChange}
+                error={errors.senha}
+                required
+                placeholder="Mínimo 6 caracteres"
+              />
+            </FormGroup>
+          </FormRow>
 
-          <Button type="submit" disabled={isSubmitting}>
+          <FormRow>
+            <FormGroup>
+              <Select
+                label="Estado"
+                name="estado"
+                value={form.estado}
+                onChange={handleChange}
+                error={errors.estado}
+                required
+              >
+                <option value="">Selecione o estado</option>
+                {estados.map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </Select>
+            </FormGroup>
+            <FormGroup>
+              <Select
+                label="Cidade"
+                name="cidade"
+                value={form.cidade}
+                onChange={handleChange}
+                error={errors.cidade}
+                required
+                disabled={!form.estado}
+              >
+                <option value="">Selecione a cidade</option>
+                {cidades.map((cidade) => (
+                  <option key={cidade} value={cidade}>
+                    {cidade}
+                  </option>
+                ))}
+              </Select>
+            </FormGroup>
+          </FormRow>
+
+          <FormRow>
+            <FormGroup>
+              <Input
+                label="CEP"
+                name="cep"
+                value={form.cep}
+                onChange={handleChange}
+                error={errors.cep}
+                required
+                placeholder="00000-000"
+              />
+            </FormGroup>
+            <FormGroup>
+              <Input
+                label="Endereço"
+                name="endereco"
+                value={form.endereco}
+                onChange={handleChange}
+                error={errors.endereco}
+                required
+                placeholder="Rua, número, bairro"
+              />
+            </FormGroup>
+          </FormRow>
+
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            style={{ width: '100%', marginTop: theme.spacing.lg }}
+          >
             {isSubmitting ? "Cadastrando..." : "Cadastrar Funcionário"}
           </Button>
         </form>
-      </FormWrapper>
-    </Container>
+      </FormCard>
+    </PageContainer>
   );
 };
 
