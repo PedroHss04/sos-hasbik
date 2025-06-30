@@ -6,13 +6,10 @@ import {
   FaPlus,
   FaPaw,
   FaComments,
-  FaCheckCircle,
-  FaExclamationTriangle,
   FaCheckSquare,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
-import DetalhesAnimal from "../detalhesAnimal/DetalhesAnimal";
-import { FaCheckDouble } from "react-icons/fa6";
 
 const Container = styled.div`
   padding: 1rem;
@@ -217,52 +214,60 @@ const Dashboard = () => {
   const [animalSelecionado, setAnimalSelecionado] = useState(null);
   const [novaMensagem, setNovaMensagem] = useState("");
   const [mensagens, setMensagens] = useState([]);
+  const [filtroStatus, setFiltroStatus] = useState("pendentes");
 
   useEffect(() => {
-  const storedUser = localStorage.getItem("user");
-  const storedUserType = localStorage.getItem("userType");
+    const storedUser = localStorage.getItem("user");
+    const storedUserType = localStorage.getItem("userType");
 
-  if (!storedUser || storedUserType !== "cidadao") {
-    navigate("/login");
-    return;
-  }
-
-  const parsedUser = JSON.parse(storedUser);
-  setUser(parsedUser);
-  setUserType(storedUserType);
-
-  const fetchAnimals = async () => {
-    const userId = parsedUser.id;
-    const { data, error } = await supabase
-      .from("Animais")
-      .select("*")
-      .eq("Id_Usuario", userId)
-      .order("Timestamp", { ascending: false });
-
-    if (error) {
-      console.error("Erro ao buscar animais:", error);
+    if (!storedUser || storedUserType !== "cidadao") {
+      navigate("/login");
       return;
     }
 
-    // Filtro para mostrar somente os que ainda não foram finalizados
-    const filtrados = data.filter((animal) => animal.finalizado !== true);
+    const parsedUser = JSON.parse(storedUser);
+    setUser(parsedUser);
+    setUserType(storedUserType);
 
-    const formattedData = filtrados.map((animal) => ({
-      ...animal,
-      nome: animal.Especie,
-      dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
-      idade: animal.Idade,
-      descricao: animal.Descricao,
-    }));
+    const fetchAnimals = async () => {
+      const userId = parsedUser.id;
+      const { data, error } = await supabase
+        .from("Animais")
+        .select("*")
+        .eq("Id_Usuario", userId)
+        .order("Timestamp", { ascending: false });
 
-    setAnimals(formattedData);
-  };
+      if (error) {
+        console.error("Erro ao buscar animais:", error);
+        return;
+      }
 
-  fetchAnimals();
-}, [navigate]);
+      let filtrados = data;
 
+      if (filtroStatus === "pendentes") {
+        filtrados = data.filter(
+          (animal) => !animal.Em_Atendimento && !animal.finalizado
+        );
+      } else if (filtroStatus === "em_atendimento") {
+        filtrados = data.filter(
+          (animal) => animal.Em_Atendimento && !animal.finalizado
+        );
+      }
 
-  // Carrega as mensagens quando um animal é selecionado
+      const formattedData = filtrados.map((animal) => ({
+        ...animal,
+        nome: animal.Especie,
+        dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
+        idade: animal.Idade,
+        descricao: animal.Descricao,
+      }));
+
+      setAnimals(formattedData);
+    };
+
+    fetchAnimals();
+  }, [navigate, filtroStatus]);
+
   useEffect(() => {
     if (animalSelecionado?.mensagens_empresa) {
       try {
@@ -275,7 +280,6 @@ const Dashboard = () => {
       setMensagens([]);
     }
 
-    // --- INÍCIO DA ADIÇÃO PARA REALTIME ---
     if (animalSelecionado?.id) {
       const channel = supabase
         .channel(`animal_messages_${animalSelecionado.id}`)
@@ -292,7 +296,6 @@ const Dashboard = () => {
               try {
                 const updatedMsgs = JSON.parse(payload.new.mensagens_empresa);
                 setMensagens(Array.isArray(updatedMsgs) ? updatedMsgs : []);
-                // Opcional: Atualizar o animalSelecionado para refletir a mudança na lista de animais
                 setAnimalSelecionado((prev) => ({
                   ...prev,
                   mensagens_empresa: payload.new.mensagens_empresa,
@@ -319,8 +322,7 @@ const Dashboard = () => {
         supabase.removeChannel(channel);
       };
     }
-    // --- FIM DA ADIÇÃO PARA REALTIME ---
-  }, [animalSelecionado]); // Dependência: animalSelecionado
+  }, [animalSelecionado]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -353,20 +355,7 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // A atualização do estado local do animal selecionado e da lista de animais
-      // será tratada pelo listener de realtime agora.
-      // setAnimalSelecionado((prev) => ({
-      //   ...prev,
-      //   mensagens_empresa: mensagensString,
-      // }));
-      // setAnimals(
-      //   animals.map((animal) =>
-      //     animal.id === animalSelecionado.id ? { ...animal, mensagens_empresa: mensagensString } : animal
-      //   )
-      // );
-
       setNovaMensagem("");
-      // alert("Mensagem enviada com sucesso!"); // Remova este alert para uma experiência mais fluida
     } catch (error) {
       console.error("Erro ao enviar mensagem:", error);
       alert("Erro ao enviar mensagem. Tente novamente.");
@@ -386,6 +375,20 @@ const Dashboard = () => {
           </LogoutButton>
         </ButtonGroup>
       </Header>
+
+      {/* Filtro */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+        <label style={{ marginRight: "0.5rem", fontWeight: 500 }}>Filtrar por status:</label>
+        <select
+          value={filtroStatus}
+          onChange={(e) => setFiltroStatus(e.target.value)}
+          style={{ padding: "0.5rem", borderRadius: "6px", border: "1px solid #ccc" }}
+        >
+          <option value="pendentes">Aguardando Atendimento</option>
+          <option value="em_atendimento">Em Atendimento</option>
+          <option value="todos">Todos</option>
+        </select>
+      </div>
 
       <AnimalsList>
         <h2 style={{ marginTop: 0, marginBottom: "1.5rem", color: "#1e293b" }}>
@@ -422,24 +425,17 @@ const Dashboard = () => {
           ))
         ) : (
           <p style={{ color: "#64748b", textAlign: "center" }}>
-            Nenhum animal cadastrado ainda.
+            Nenhum animal encontrado para este filtro.
           </p>
         )}
       </AnimalsList>
 
-      <FooterButtons>
-        <ActionButton
-          primary
-          onClick={() => alert("Funcionalidade em desenvolvimento")}
-        >
-          <FaPaw />
-          Ver Todos
-        </ActionButton>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: "1.5rem" }}>
         <ActionButton onClick={handleRegisterAnimal}>
           <FaPlus />
           Cadastrar Animal
         </ActionButton>
-      </FooterButtons>
+      </div>
 
       {animalSelecionado && (
         <div
@@ -470,29 +466,16 @@ const Dashboard = () => {
             <h3>{animalSelecionado.nome}</h3>
 
             <div style={{ margin: "1rem 0" }}>
-              <p>
-                <strong>Espécie:</strong> {animalSelecionado.Especie}
-              </p>
-              <p>
-                <strong>Idade:</strong> {animalSelecionado.Idade}
-              </p>
-              <p>
-                <strong>Estado:</strong>{" "}
-                {animalSelecionado.Ferido ? "Ferido" : "Saudável"}
-              </p>
-              <p>
-                <strong>Cadastrado em:</strong> {animalSelecionado.dataCadastro}
-              </p>
-              <p>
-                <strong>Descrição:</strong> {animalSelecionado.Descricao}
-              </p>
+              <p><strong>Espécie:</strong> {animalSelecionado.Especie}</p>
+              <p><strong>Idade:</strong> {animalSelecionado.Idade}</p>
+              <p><strong>Estado:</strong> {animalSelecionado.Ferido ? "Ferido" : "Saudável"}</p>
+              <p><strong>Cadastrado em:</strong> {animalSelecionado.dataCadastro}</p>
+              <p><strong>Descrição:</strong> {animalSelecionado.Descricao}</p>
             </div>
 
-            {/* Seção de Comunicação */}
+            {/* Comunicação */}
             <ComunicacaoContainer>
-              <ComunicacaoTitle>
-                <FaComments /> Comunicação com a Empresa
-              </ComunicacaoTitle>
+              <ComunicacaoTitle><FaComments /> Comunicação com a Empresa</ComunicacaoTitle>
 
               {animalSelecionado.Em_Atendimento ? (
                 <>
@@ -501,17 +484,13 @@ const Dashboard = () => {
                     onChange={(e) => setNovaMensagem(e.target.value)}
                     placeholder="Digite sua mensagem para a empresa..."
                   />
-                  <EnviarButton onClick={enviarMensagem}>
-                    Enviar Mensagem
-                  </EnviarButton>
+                  <EnviarButton onClick={enviarMensagem}>Enviar Mensagem</EnviarButton>
 
                   {mensagens.length > 0 ? (
                     <MensagensList>
                       {mensagens.map((msg, index) => (
                         <MensagemItem key={index}>
-                          <div>
-                            <strong>{msg.enviadoPor}:</strong> {msg.texto}
-                          </div>
+                          <div><strong>{msg.enviadoPor}:</strong> {msg.texto}</div>
                           <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
                             {new Date(msg.data).toLocaleString()}
                           </div>
@@ -533,9 +512,7 @@ const Dashboard = () => {
                   <MensagensList>
                     {mensagens.map((msg, index) => (
                       <MensagemItem key={index}>
-                        <div>
-                          <strong>{msg.enviadoPor}:</strong> {msg.texto}
-                        </div>
+                        <div><strong>{msg.enviadoPor}:</strong> {msg.texto}</div>
                         <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
                           {new Date(msg.data).toLocaleString()}
                         </div>
