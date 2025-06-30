@@ -219,44 +219,48 @@ const Dashboard = () => {
   const [mensagens, setMensagens] = useState([]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const storedUserType = localStorage.getItem("userType");
+  const storedUser = localStorage.getItem("user");
+  const storedUserType = localStorage.getItem("userType");
 
-    if (!storedUser || storedUserType !== "cidadao") {
-      navigate("/login");
+  if (!storedUser || storedUserType !== "cidadao") {
+    navigate("/login");
+    return;
+  }
+
+  const parsedUser = JSON.parse(storedUser);
+  setUser(parsedUser);
+  setUserType(storedUserType);
+
+  const fetchAnimals = async () => {
+    const userId = parsedUser.id;
+    const { data, error } = await supabase
+      .from("Animais")
+      .select("*")
+      .eq("Id_Usuario", userId)
+      .order("Timestamp", { ascending: false });
+
+    if (error) {
+      console.error("Erro ao buscar animais:", error);
       return;
     }
 
-    const parsedUser = JSON.parse(storedUser);
-    setUser(parsedUser);
-    setUserType(storedUserType);
+    // Filtro para mostrar somente os que ainda não foram finalizados
+    const filtrados = data.filter((animal) => animal.finalizado !== true);
 
-    const fetchAnimals = async () => {
-      const userId = parsedUser.id;
-      const { data, error } = await supabase
-        .from("Animais")
-        .select("*")
-        .eq("Id_Usuario", userId)
-        .order("Timestamp", { ascending: false });
+    const formattedData = filtrados.map((animal) => ({
+      ...animal,
+      nome: animal.Especie,
+      dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
+      idade: animal.Idade,
+      descricao: animal.Descricao,
+    }));
 
-      if (error) {
-        console.error("Erro ao buscar animais:", error);
-        return;
-      }
+    setAnimals(formattedData);
+  };
 
-      const formattedData = data.map((animal) => ({
-        ...animal,
-        nome: animal.Especie,
-        dataCadastro: new Date(animal.Timestamp).toLocaleDateString("pt-BR"),
-        idade: animal.Idade,
-        descricao: animal.Descricao,
-      }));
+  fetchAnimals();
+}, [navigate]);
 
-      setAnimals(formattedData);
-    };
-
-    fetchAnimals();
-  }, [navigate]);
 
   // Carrega as mensagens quando um animal é selecionado
   useEffect(() => {
