@@ -2,132 +2,168 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import FormGroup from "../../geral-components/FormGroup";
+import SelectGroup from "./components/SelectGroup";
+import { Button } from "../../geral-components/Button";
 import { FaBuilding, FaArrowLeft, FaUpload, FaTimes } from "react-icons/fa";
 import { supabase } from "../../lib/supabaseClient";
 import { hashPassword } from "../../utils/passwordUtils";
 import { cadastroEmpresaSchema } from "../../utils/validationSchemas";
-import { theme } from "../../styles/theme";
-import { Container, Card } from "../../components/ui/Layout";
-import { Button } from "../../components/ui/Button";
-import { Input, Select } from "../../components/ui/Input";
-import { FormGroup, FormRow } from "../../components/ui/FormComponents";
-import { Alert } from "../../components/ui/Alert";
 
-const PageContainer = styled(Container)`
+const Container = styled.div`
+  width: 100%;
   min-height: 100vh;
-  background: ${theme.gradients.background};
-  padding: ${theme.spacing.xl};
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  background: linear-gradient(to right, #dfe9f3, #ffffff);
+  padding: 2rem;
 `;
 
-const FormCard = styled(Card)`
+const FormWrapper = styled.div`
+  background: #fff;
+  padding: 2rem;
+  border-radius: 16px;
   width: 100%;
-  max-width: 600px;
-  padding: ${theme.spacing.xl};
+  max-width: 500px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 `;
 
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: ${theme.spacing.xl};
+  margin-bottom: 1.5rem;
 `;
 
-const Title = styled.h1`
-  font-family: ${theme.fonts.heading};
-  font-size: ${theme.fontSizes.xl};
-  font-weight: 600;
-  color: ${theme.colors.primary[800]};
+const Title = styled.h2`
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+`;
+
+const CompanyIcon = styled(FaBuilding)`
+  font-size: 32px;
+  color: #444;
+`;
+
+const BackButton = styled.button`
   display: flex;
   align-items: center;
-  gap: ${theme.spacing.md};
-`;
-
-const BackButton = styled(Button)`
-  margin-bottom: ${theme.spacing.lg};
-`;
-
-const FileUploadArea = styled.div`
-  border: 2px dashed ${theme.colors.gray[300]};
-  border-radius: ${theme.borderRadius.lg};
-  padding: ${theme.spacing.xl};
-  text-align: center;
-  background: ${theme.colors.gray[50]};
-  transition: all 0.3s ease;
-  cursor: pointer;
-  margin-bottom: ${theme.spacing.lg};
-
-  &:hover {
-    border-color: ${theme.colors.primary[400]};
-    background: ${theme.colors.primary[50]};
-  }
-
-  &.drag-over {
-    border-color: ${theme.colors.primary[500]};
-    background: ${theme.colors.primary[100]};
-  }
-`;
-
-const UploadText = styled.div`
-  color: ${theme.colors.gray[600]};
-  font-size: ${theme.fontSizes.sm};
-  margin-bottom: ${theme.spacing.xs};
-`;
-
-const UploadSubtext = styled.div`
-  color: ${theme.colors.gray[400]};
-  font-size: ${theme.fontSizes.xs};
-`;
-
-const FilePreview = styled.div`
-  margin-top: ${theme.spacing.md};
-  padding: ${theme.spacing.md};
-  background: ${theme.colors.white};
-  border: 1px solid ${theme.colors.gray[200]};
-  border-radius: ${theme.borderRadius.md};
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const FileDetails = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${theme.spacing.sm};
-  flex: 1;
-`;
-
-const FileName = styled.div`
-  font-weight: 500;
-  color: ${theme.colors.gray[700]};
-`;
-
-const FileSize = styled.div`
-  color: ${theme.colors.gray[500]};
-  font-size: ${theme.fontSizes.xs};
-`;
-
-const RemoveFileButton = styled.button`
-  background: none;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #6b7280;
+  color: white;
   border: none;
-  color: ${theme.colors.danger[500]};
+  border-radius: 8px;
   cursor: pointer;
-  padding: ${theme.spacing.xs};
-  border-radius: ${theme.borderRadius.sm};
-  transition: background-color 0.2s;
+  font-size: 1rem;
+  margin-bottom: 1rem;
 
   &:hover {
-    background-color: ${theme.colors.danger[50]};
+    background: #4b5563;
   }
 `;
 
-const FileHelp = styled.div`
-  margin-top: ${theme.spacing.sm};
-  font-size: ${theme.fontSizes.xs};
-  color: ${theme.colors.gray[500]};
-  font-style: italic;
+const FileUploadGroup = styled.div`
+  margin-bottom: 1.5rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 14px;
+    gap: 0.5rem;
+  }
+
+  .upload-area {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    background-color: #fafafa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+
+    &:hover {
+      border-color: #007bff;
+      background-color: #f0f8ff;
+    }
+
+    &.drag-over {
+      border-color: #007bff;
+      background-color: #e3f2fd;
+    }
+  }
+
+  .upload-text {
+    color: #6c757d;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .upload-subtext {
+    color: #adb5bd;
+    font-size: 12px;
+  }
+
+  .file-preview {
+    margin-top: 12px;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .file-details {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .file-name {
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .file-size {
+      color: #6c757d;
+      font-size: 12px;
+    }
+
+    .remove-file {
+      background: none;
+      border: none;
+      color: #dc3545;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+
+      &:hover {
+        background-color: #f5c6cb;
+      }
+    }
+  }
+
+  .file-error {
+    margin-top: 8px;
+    color: #dc3545;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .file-help {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #6c757d;
+    font-style: italic;
+  }
 `;
 
 const CadastroEmpresa = () => {
@@ -153,7 +189,9 @@ const CadastroEmpresa = () => {
 
   useEffect(() => {
     axios
-      .get("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome")
+      .get(
+        "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
+      )
       .then((res) => {
         const estadosOrdenados = res.data.map((estado) => estado.sigla);
         setEstados(estadosOrdenados);
@@ -245,7 +283,11 @@ const CadastroEmpresa = () => {
     const file = e.target.files[0];
 
     if (file) {
-      if (!file.type.includes("zip") && !file.name.toLowerCase().endsWith(".zip")) {
+      // Verificar se é um arquivo ZIP
+      if (
+        !file.type.includes("zip") &&
+        !file.name.toLowerCase().endsWith(".zip")
+      ) {
         setErrors((prev) => ({
           ...prev,
           arquivo: "Por favor, selecione apenas arquivos ZIP.",
@@ -254,7 +296,8 @@ const CadastroEmpresa = () => {
         return;
       }
 
-      const maxSize = 10 * 1024 * 1024;
+      // Verificar tamanho do arquivo (máximo 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB em bytes
       if (file.size > maxSize) {
         setErrors((prev) => ({
           ...prev,
@@ -278,10 +321,13 @@ const CadastroEmpresa = () => {
     if (!arquivoZip) return null;
 
     try {
+      // Gerar nome único para o arquivo
       const timestamp = new Date().getTime();
       const nomeArquivo = `${empresaId}_${timestamp}_${arquivoZip.name}`;
+      // Caminho do arquivo: pendente/CNPJ_DA_EMPRESA/nome_do_arquivo.zip
       const caminhoArquivo = `pendente/${cnpjLimpo}/${nomeArquivo}`;
 
+      // Upload para o bucket 'documentos' na pasta 'pendente/CNPJ_DA_EMPRESA/'
       const { data, error } = await supabase.storage
         .from("documentos")
         .upload(caminhoArquivo, arquivoZip, {
@@ -323,6 +369,7 @@ const CadastroEmpresa = () => {
       };
       delete empresaData.senha;
 
+      // Inserir dados da empresa no banco
       const { data: empresaInserida, error: errorEmpresa } = await supabase
         .from("empresas")
         .insert([empresaData])
@@ -331,25 +378,32 @@ const CadastroEmpresa = () => {
 
       if (errorEmpresa) throw errorEmpresa;
 
+      // Se há arquivo ZIP, fazer upload
       let caminhoArquivo = null;
       if (arquivoZip) {
         try {
-          const cnpjLimpo = form.cnpj.replace(/\D/g, "");
-          caminhoArquivo = await uploadArquivoZip(empresaInserida.id, cnpjLimpo);
+          const cnpjLimpo = form.cnpj.replace(/\D/g, ""); // CNPJ sem caracteres especiais
+          caminhoArquivo = await uploadArquivoZip(
+            empresaInserida.id,
+            cnpjLimpo
+          );
 
+          // Atualizar registro da empresa com o caminho do arquivo
           const { error: errorUpdate } = await supabase
             .from("empresas")
-            .update({ arquivo_zip_url: caminhoArquivo })
+            .update({ arquivo_zip_url: caminhoArquivo }) // Alterado para arquivo_zip_url
             .eq("id", empresaInserida.id);
 
           if (errorUpdate) {
             console.error("Erro ao atualizar caminho do arquivo:", errorUpdate);
           }
         } catch (uploadError) {
+          // Se falhar o upload, ainda assim mantém o cadastro da empresa
           console.error("Erro no upload do arquivo:", uploadError);
           setMensagem({
-            texto: "⚠️ Cadastro realizado, mas houve erro no upload do arquivo. Você pode enviar os documentos posteriormente.",
-            tipo: "warning",
+            texto:
+              "⚠️ Cadastro realizado, mas houve erro no upload do arquivo. Você pode enviar os documentos posteriormente.",
+            tipo: "aviso",
           });
         }
       }
@@ -359,10 +413,11 @@ const CadastroEmpresa = () => {
           texto: arquivoZip
             ? "✅ Cadastro realizado com sucesso! Documentos enviados. Aguarde a aprovação."
             : "✅ Cadastro realizado com sucesso! Aguarde a aprovação.",
-          tipo: "success",
+          tipo: "sucesso",
         });
       }
 
+      // Limpar formulário
       event.target.reset();
       setForm({
         nome: "",
@@ -387,7 +442,7 @@ const CadastroEmpresa = () => {
       } else {
         setMensagem({
           texto: "❌ Erro no cadastro: " + error.message,
-          tipo: "error",
+          tipo: "erro",
         });
       }
     } finally {
@@ -396,171 +451,126 @@ const CadastroEmpresa = () => {
   };
 
   return (
-    <PageContainer>
-      <FormCard>
-        <BackButton 
-          variant="secondary" 
-          onClick={() => navigate("/login")}
-          style={{ marginBottom: theme.spacing.lg }}
-        >
-          <FaArrowLeft /> Voltar para Login
+    <Container>
+      <FormWrapper>
+        <BackButton onClick={() => navigate("/login")}>
+          <FaArrowLeft />
+          Voltar para Login
         </BackButton>
-
         <Header>
-          <Title>
-            <FaBuilding />
-            Cadastro de Empresa
-          </Title>
+          <Title>Cadastro de Empresa</Title>
+          <CompanyIcon />
         </Header>
-
         {mensagem.texto && (
-          <Alert type={mensagem.tipo} style={{ marginBottom: theme.spacing.lg }}>
+          <div
+            style={{
+              color:
+                mensagem.tipo === "sucesso"
+                  ? "green"
+                  : mensagem.tipo === "aviso"
+                  ? "orange"
+                  : "red",
+              marginBottom: "1rem",
+              padding: "0.5rem",
+              borderRadius: "4px",
+              backgroundColor:
+                mensagem.tipo === "sucesso"
+                  ? "#f0f8f0"
+                  : mensagem.tipo === "aviso"
+                  ? "#fff8e1"
+                  : "#ffeaea",
+            }}
+          >
             {mensagem.texto}
-          </Alert>
+          </div>
         )}
-
         <form onSubmit={handleSubmit}>
-          <FormGroup>
-            <Input
-              label="Nome da Empresa"
-              name="nome"
-              value={form.nome}
-              onChange={handleChange}
-              error={errors.nome}
-              required
-              placeholder="Digite o nome da empresa"
-            />
-          </FormGroup>
+          <FormGroup
+            label="Nome da Empresa"
+            name="nome"
+            value={form.nome}
+            onChange={handleChange}
+            error={errors.nome}
+            required
+          />
+          <FormGroup
+            label="CNPJ"
+            name="cnpj"
+            value={form.cnpj}
+            onChange={handleChange}
+            error={errors.cnpj}
+            required
+          />
+          <FormGroup
+            label="Email"
+            name="email"
+            type="email"
+            value={form.email}
+            onChange={handleChange}
+            error={errors.email}
+            required
+          />
+          <FormGroup
+            label="Telefone"
+            name="telefone"
+            value={form.telefone}
+            onChange={handleChange}
+            error={errors.telefone}
+            required
+          />
+          <FormGroup
+            label="Senha"
+            name="senha"
+            type="password"
+            value={form.senha}
+            onChange={handleChange}
+            error={errors.senha}
+            required
+          />
+          <SelectGroup
+            label="Estado"
+            name="estado"
+            value={form.estado}
+            onChange={handleChange}
+            error={errors.estado}
+            options={estados}
+            required
+          />
+          <SelectGroup
+            label="Cidade"
+            name="cidade"
+            value={form.cidade}
+            onChange={handleChange}
+            error={errors.cidade}
+            options={cidades}
+            required
+            disabled={!form.estado}
+          />
+          <FormGroup
+            label="CEP"
+            name="cep"
+            value={form.cep}
+            onChange={handleChange}
+            error={errors.cep}
+            required
+          />
+          <FormGroup
+            label="Endereço"
+            name="endereco"
+            value={form.endereco}
+            onChange={handleChange}
+            error={errors.endereco}
+            required
+          />
 
-          <FormRow>
-            <FormGroup>
-              <Input
-                label="CNPJ"
-                name="cnpj"
-                value={form.cnpj}
-                onChange={handleChange}
-                error={errors.cnpj}
-                required
-                placeholder="00.000.000/0000-00"
-              />
-            </FormGroup>
-            <FormGroup>
-              <Input
-                label="Telefone"
-                name="telefone"
-                value={form.telefone}
-                onChange={handleChange}
-                error={errors.telefone}
-                required
-                placeholder="(00) 00000-0000"
-              />
-            </FormGroup>
-          </FormRow>
-
-          <FormRow>
-            <FormGroup>
-              <Input
-                label="Email"
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-                error={errors.email}
-                required
-                placeholder="empresa@exemplo.com"
-              />
-            </FormGroup>
-            <FormGroup>
-              <Input
-                label="Senha"
-                name="senha"
-                type="password"
-                value={form.senha}
-                onChange={handleChange}
-                error={errors.senha}
-                required
-                placeholder="Mínimo 6 caracteres"
-              />
-            </FormGroup>
-          </FormRow>
-
-          <FormRow>
-            <FormGroup>
-              <Select
-                label="Estado"
-                name="estado"
-                value={form.estado}
-                onChange={handleChange}
-                error={errors.estado}
-                required
-              >
-                <option value="">Selecione o estado</option>
-                {estados.map((estado) => (
-                  <option key={estado} value={estado}>
-                    {estado}
-                  </option>
-                ))}
-              </Select>
-            </FormGroup>
-            <FormGroup>
-              <Select
-                label="Cidade"
-                name="cidade"
-                value={form.cidade}
-                onChange={handleChange}
-                error={errors.cidade}
-                required
-                disabled={!form.estado}
-              >
-                <option value="">Selecione a cidade</option>
-                {cidades.map((cidade) => (
-                  <option key={cidade} value={cidade}>
-                    {cidade}
-                  </option>
-                ))}
-              </Select>
-            </FormGroup>
-          </FormRow>
-
-          <FormRow>
-            <FormGroup>
-              <Input
-                label="CEP"
-                name="cep"
-                value={form.cep}
-                onChange={handleChange}
-                error={errors.cep}
-                required
-                placeholder="00000-000"
-              />
-            </FormGroup>
-            <FormGroup>
-              <Input
-                label="Endereço"
-                name="endereco"
-                value={form.endereco}
-                onChange={handleChange}
-                error={errors.endereco}
-                required
-                placeholder="Rua, número, bairro"
-              />
-            </FormGroup>
-          </FormRow>
-
-          <FormGroup>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: theme.spacing.sm,
-              fontWeight: 600,
-              color: theme.colors.gray[700],
-              marginBottom: theme.spacing.sm
-            }}>
+          {/* Campo de upload de arquivo ZIP */}
+          <FileUploadGroup>
+            <label>
               <FaUpload />
               Documentos da Empresa (ZIP)
             </label>
 
-            <FileUploadArea>
+            <div className="upload-area">
               <input
                 type="file"
                 accept=".zip,application/zip"
@@ -572,58 +582,52 @@ const CadastroEmpresa = () => {
                 htmlFor="arquivo-zip"
                 style={{ cursor: "pointer", width: "100%", display: "block" }}
               >
-                <UploadText>
+                <div className="upload-text">
                   Clique aqui para selecionar um arquivo ZIP
-                </UploadText>
-                <UploadSubtext>
+                </div>
+                <div className="upload-subtext">
                   Ou arraste e solte o arquivo aqui
-                </UploadSubtext>
+                </div>
               </label>
-            </FileUploadArea>
+            </div>
 
             {arquivoZip && (
-              <FilePreview>
-                <FileDetails>
+              <div className="file-preview">
+                <div className="file-details">
                   <span>📎</span>
                   <div>
-                    <FileName>{arquivoZip.name}</FileName>
-                    <FileSize>
+                    <div className="file-name">{arquivoZip.name}</div>
+                    <div className="file-size">
                       {(arquivoZip.size / 1024 / 1024).toFixed(2)} MB
-                    </FileSize>
+                    </div>
                   </div>
-                </FileDetails>
-                <RemoveFileButton
+                </div>
+                <button
                   type="button"
+                  className="remove-file"
                   onClick={handleRemoveFile}
                   title="Remover arquivo"
                 >
                   <FaTimes />
-                </RemoveFileButton>
-              </FilePreview>
+                </button>
+              </div>
             )}
 
             {errors.arquivo && (
-              <Alert type="error" style={{ marginTop: theme.spacing.sm }}>
-                {errors.arquivo}
-              </Alert>
+              <div className="file-error">{errors.arquivo}</div>
             )}
 
-            <FileHelp>
+            <div className="file-help">
               Opcional. Envie documentos da empresa em formato ZIP (máximo 10MB)
-            </FileHelp>
-          </FormGroup>
+            </div>
+          </FileUploadGroup>
 
-          <Button 
-            type="submit" 
-            disabled={isSubmitting}
-            loading={isSubmitting}
-            style={{ width: '100%', marginTop: theme.spacing.lg }}
-          >
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Cadastrando..." : "Cadastrar Empresa"}
           </Button>
         </form>
-      </FormCard>
-    </PageContainer>
+      </FormWrapper>
+    </Container>
   );
 };
 

@@ -1,7 +1,7 @@
 # SOS Hasbik - Sistema de Gerenciamento de Animais
 
 ## 📋 Descrição
-O SOS Hasbik é uma plataforma web desenvolvida para facilitar o gerenciamento e resgate de animais. O sistema permite que cidadãos e empresas se cadastrem e interajam com o propósito de ajudar animais em situação de vulnerabilidade.
+O SOS Hasbik é uma plataforma web desenvolvida para facilitar o gerenciamento e adoção de animais. O sistema permite que cidadãos e empresas se cadastrem e interajam com o propósito de ajudar animais em situação de vulnerabilidade.
 
 ## ✨ Funcionalidades
 
